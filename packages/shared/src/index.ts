@@ -9,6 +9,7 @@ export * from './notification';
 export * from './plugins';
 export * from './api-token';
 export * from './auth';
+export * from './config-io';
 export * from './escalation';
 export * from './incident';
 export * from './maintenance';

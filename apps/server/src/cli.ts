@@ -8,6 +8,7 @@ import { cac } from 'cac';
 import type { Command } from 'cac';
 import { runMigrate, startPingWatch } from './main';
 import { runAgent } from './bootstrap/agent';
+import { runExport, runImport } from './bootstrap/import';
 import type { CliFlags } from './config/resolve';
 
 function normalizeFlags(opts: Record<string, unknown>): CliFlags {
@@ -43,6 +44,32 @@ cli
   .option('--data-dir <dir>', 'Data directory')
   .option('--config <file>', 'Path to a config file')
   .action((opts: Record<string, unknown>) => runMigrate(normalizeFlags(opts)));
+
+cli
+  .command('import <file>', 'Import a YAML config bundle (idempotent upsert)')
+  .option('--data-dir <dir>', 'Data directory')
+  .option('--config <file>', 'Path to a config file')
+  .option('--org <slug>', 'Target organization slug (required if more than one exists)')
+  .option('--dry-run', 'Compute the import report without writing any changes')
+  .action((file: string, opts: Record<string, unknown>) =>
+    runImport(file, {
+      ...normalizeFlags(opts),
+      ...(typeof opts.org === 'string' ? { org: opts.org } : {}),
+      dryRun: opts.dryRun === true,
+    }),
+  );
+
+cli
+  .command('export <file>', 'Export this organization config to a YAML file')
+  .option('--data-dir <dir>', 'Data directory')
+  .option('--config <file>', 'Path to a config file')
+  .option('--org <slug>', 'Source organization slug (required if more than one exists)')
+  .action((file: string, opts: Record<string, unknown>) =>
+    runExport(file, {
+      ...normalizeFlags(opts),
+      ...(typeof opts.org === 'string' ? { org: opts.org } : {}),
+    }),
+  );
 
 cli
   .command('agent', 'Run as a metrics agent — push this host to a PingWatch server')

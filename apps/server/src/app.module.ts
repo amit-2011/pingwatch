@@ -56,6 +56,9 @@ import { ScopedTokenGuard } from './auth/scoped-token.guard';
 import { ApiTokenService } from './tokens/api-token.service';
 import { ApiTokenController } from './tokens/api-token.controller';
 import { TokenIntrospectController } from './tokens/token-introspect.controller';
+import { ConfigExportService } from './config-io/config-export.service';
+import { ConfigImportService } from './config-io/config-import.service';
+import { ConfigIoController } from './config-io/config-io.controller';
 
 export interface AppModuleDeps {
   secret: string;
@@ -101,6 +104,7 @@ export class AppModule {
         EscalationController,
         ApiTokenController,
         TokenIntrospectController,
+        ConfigIoController,
       ],
       providers: [
         { provide: APP_SECRET, useValue: deps.secret },
@@ -139,6 +143,8 @@ export class AppModule {
         EscalationAdminService,
         ScopedTokenGuard,
         ApiTokenService,
+        ConfigExportService,
+        ConfigImportService,
         // Global first-run gate: 409 SETUP_REQUIRED until setup completes.
         { provide: APP_GUARD, useClass: SetupGuard },
       ],
