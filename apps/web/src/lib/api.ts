@@ -1,8 +1,7 @@
-export interface ApiErrorEnvelope {
-  code: string;
-  message: string;
-  details?: unknown;
-}
+import type { AuthUser, ErrorEnvelope, MonitorStatus } from '@pingwatch/shared';
+
+// Re-export the canonical wire-contract types so the rest of the web app uses ONE source of truth.
+export type { AuthUser, ErrorEnvelope, MonitorStatus } from '@pingwatch/shared';
 
 export class ApiError extends Error {
   constructor(
@@ -15,20 +14,12 @@ export class ApiError extends Error {
   }
 }
 
-export interface AuthUser {
-  id: string;
-  email: string;
-  name: string | null;
-  organizationId: string;
-  role: string;
-}
-
 export interface MonitorView {
   id: string;
   projectId: string;
   name: string;
   type: string;
-  status: 'up' | 'down' | 'pending' | 'paused' | 'maintenance';
+  status: MonitorStatus;
   isActive: boolean;
   intervalSeconds: number;
   retries: number;
@@ -101,7 +92,7 @@ export async function apiFetch<T>(path: string, opts: RequestInit = {}): Promise
   const text = await res.text();
   const body: unknown = text ? JSON.parse(text) : undefined;
   if (!res.ok) {
-    const env = body as ApiErrorEnvelope | undefined;
+    const env = body as ErrorEnvelope | undefined;
     throw new ApiError(env?.code ?? 'INTERNAL', env?.message ?? res.statusText, res.status, env?.details);
   }
   return body as T;
