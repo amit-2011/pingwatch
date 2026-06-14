@@ -18,6 +18,7 @@ export type {
   ApiTokenView,
   ApiTokenSecretView,
   TokenScope,
+  ImportReport,
 } from '@pingwatch/shared';
 
 export class ApiError extends Error {
@@ -170,4 +171,24 @@ export async function apiFetch<T>(path: string, opts: RequestInit = {}): Promise
     throw new ApiError(env?.code ?? 'INTERNAL', env?.message ?? res.statusText, res.status, env?.details);
   }
   return body as T;
+}
+
+/** Like apiFetch but returns the raw response text (e.g. a YAML export, not JSON). */
+export async function apiFetchText(path: string, opts: RequestInit = {}): Promise<string> {
+  let res = await rawFetch(path, opts);
+  if (res.status === 401 && accessToken) {
+    const refreshed = await refreshSession();
+    if (refreshed) res = await rawFetch(path, opts);
+  }
+  const text = await res.text();
+  if (!res.ok) {
+    let env: ErrorEnvelope | undefined;
+    try {
+      env = text ? (JSON.parse(text) as ErrorEnvelope) : undefined;
+    } catch {
+      env = undefined;
+    }
+    throw new ApiError(env?.code ?? 'INTERNAL', env?.message ?? res.statusText, res.status, env?.details);
+  }
+  return text;
 }
