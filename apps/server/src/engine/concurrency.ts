@@ -1,4 +1,8 @@
-export type Limiter = <T>(task: () => Promise<T>) => Promise<T>;
+export interface Limiter {
+  <T>(task: () => Promise<T>): Promise<T>;
+  /** Number of tasks currently running (for self-observability). */
+  inFlight(): number;
+}
 
 /**
  * Minimal dependency-free concurrency limiter — caps simultaneous in-flight checks at `max`
@@ -14,7 +18,7 @@ export function createLimiter(max: number): Limiter {
     if (next) next();
   };
 
-  return <T>(task: () => Promise<T>): Promise<T> =>
+  const limiter = <T>(task: () => Promise<T>): Promise<T> =>
     new Promise<T>((resolve, reject) => {
       const run = (): void => {
         active += 1;
@@ -23,4 +27,7 @@ export function createLimiter(max: number): Limiter {
       if (active < max) run();
       else queue.push(run);
     });
+
+  limiter.inFlight = (): number => active;
+  return limiter;
 }
