@@ -33,6 +33,7 @@ import { ChannelService } from './notifications/channel.service';
 import { ChannelController } from './notifications/channel.controller';
 import { MonitorService } from './monitors/monitor.service';
 import { MonitorController } from './monitors/monitor.controller';
+import { RealtimeService } from './realtime/realtime.service';
 
 export interface AppModuleDeps {
   secret: string;
@@ -93,6 +94,7 @@ export class AppModule {
         IncidentListener,
         ChannelService,
         MonitorService,
+        RealtimeService,
         // Global first-run gate: 409 SETUP_REQUIRED until setup completes.
         { provide: APP_GUARD, useClass: SetupGuard },
       ],

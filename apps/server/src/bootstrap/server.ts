@@ -21,6 +21,7 @@ import type { PingWatchPrismaClient } from '@pingwatch/db';
 import { AppModule } from '../app.module';
 import { AllExceptionsFilter } from '../common/all-exceptions.filter';
 import type { ResolvedConfig } from '../config/schema';
+import { RealtimeService } from '../realtime/realtime.service';
 
 export interface ServerHandle {
   close(): Promise<void>;
@@ -86,6 +87,9 @@ export async function startServer(options: StartServerOptions): Promise<ServerHa
     httpServer.once('listening', () => resolve());
     httpServer.once('error', reject);
   });
+
+  // Attach the realtime gateway to the same HTTP server (single process, single port).
+  nestApp.get(RealtimeService).attach(httpServer);
 
   return {
     async close(): Promise<void> {
