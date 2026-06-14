@@ -1,5 +1,6 @@
 import { type DynamicModule, Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { LoggerModule } from 'nestjs-pino';
 import type { PingWatchPrismaClient } from '@pingwatch/db';
 import type { ResolvedConfig } from './config/schema';
@@ -18,6 +19,7 @@ import { RolesGuard } from './auth/roles.guard';
 import { SetupGuard } from './auth/setup.guard';
 import { MonitorTypeRegistry } from './engine/monitor-type.registry';
 import { CheckRunnerService } from './engine/check-runner.service';
+import { SchedulerService } from './engine/scheduler.service';
 
 export interface AppModuleDeps {
   secret: string;
@@ -36,6 +38,7 @@ export class AppModule {
     return {
       module: AppModule,
       imports: [
+        EventEmitterModule.forRoot(),
         LoggerModule.forRoot({
           pinoHttp: {
             level: process.env.LOG_LEVEL ?? 'info',
@@ -59,6 +62,7 @@ export class AppModule {
         RolesGuard,
         MonitorTypeRegistry,
         CheckRunnerService,
+        SchedulerService,
         // Global first-run gate: 409 SETUP_REQUIRED until setup completes.
         { provide: APP_GUARD, useClass: SetupGuard },
       ],
@@ -73,6 +77,7 @@ export class AppModule {
         RefreshTokenService,
         MonitorTypeRegistry,
         CheckRunnerService,
+        SchedulerService,
       ],
     };
   }
