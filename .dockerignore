@@ -1,0 +1,15 @@
+**/node_modules
+**/dist
+**/.next
+**/.turbo
+**/generated-sqlite
+**/generated-postgres
+.git
+.github
+data
+*.db
+*.db-wal
+*.db-shm
+*.log
+PLAN.md
+TASKS.md
