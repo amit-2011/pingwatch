@@ -70,6 +70,9 @@ export class SchedulerService implements OnModuleDestroy {
 
     const decision = runtime.applyResult(result.status === 'up', spec.retries);
     const at = Date.now();
+    // Confirm faster while pending; otherwise wait the normal interval. This delay is also the
+    // duration this beat "covers" for duration-weighted uptime.
+    const nextDelay = decision.status === 'pending' ? spec.retryIntervalMs : spec.intervalMs;
 
     const beat: MonitorBeatEvent = {
       monitorId: spec.id,
@@ -77,7 +80,9 @@ export class SchedulerService implements OnModuleDestroy {
       status: decision.status,
       beatStatus: decision.beatStatus,
       important: decision.important,
+      changed: decision.changed,
       failCount: decision.failCount,
+      coverageMs: nextDelay,
       at,
     };
     this.events.emit(MONITOR_BEAT_EVENT, beat);
@@ -92,8 +97,6 @@ export class SchedulerService implements OnModuleDestroy {
       this.events.emit(MONITOR_TRANSITION_EVENT, transition);
     }
 
-    // Confirm faster while pending; otherwise wait the normal interval.
-    const nextDelay = decision.status === 'pending' ? spec.retryIntervalMs : spec.intervalMs;
     this.arm(spec, nextDelay);
   }
 }
