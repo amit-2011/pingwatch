@@ -15,6 +15,22 @@ export const telegramChannelConfigSchema = z.object({
 });
 export type TelegramChannelConfig = z.infer<typeof telegramChannelConfigSchema>;
 
+export const slackChannelConfigSchema = z.object({
+  webhookUrl: z.string().url().max(2048),
+});
+export type SlackChannelConfig = z.infer<typeof slackChannelConfigSchema>;
+
+export const emailChannelConfigSchema = z.object({
+  host: z.string().min(1).max(255),
+  port: z.number().int().min(1).max(65_535).default(587),
+  secure: z.boolean().default(false),
+  username: z.string().max(255).optional(),
+  password: z.string().max(255).optional(),
+  from: z.string().email().max(320),
+  to: z.string().email().max(320),
+});
+export type EmailChannelConfig = z.infer<typeof emailChannelConfigSchema>;
+
 /**
  * Generic create-channel DTO. `config` is provider-specific and is re-validated by the chosen
  * provider's own `configSchema` (see `NotificationProvider` in ./plugins) — this outer schema
