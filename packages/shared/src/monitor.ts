@@ -13,7 +13,7 @@
 import { z, type ZodType, type ZodTypeDef } from 'zod';
 import type { MonitorTypeId } from './constants';
 
-const HTTP_METHODS = ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'] as const;
+export const HTTP_METHODS = ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'] as const;
 
 /** A status assertion entry: exact `"200"`, range `"200-299"`, or family `"2XX"`. */
 const statusAssertion = z
@@ -39,15 +39,54 @@ export const httpMonitorConfigSchema = httpMonitorConfigObject.refine(
 );
 export type HttpMonitorConfig = z.infer<typeof httpMonitorConfigSchema>;
 
+/** TCP port reachability. */
+export const tcpMonitorConfigSchema = z.object({
+  host: z.string().min(1).max(255),
+  port: z.number().int().min(1).max(65_535),
+});
+export type TcpMonitorConfig = z.infer<typeof tcpMonitorConfigSchema>;
+
+/** ICMP ping reachability (unprivileged shell-out to the system `ping`). */
+export const pingMonitorConfigSchema = z.object({
+  host: z.string().min(1).max(255),
+});
+export type PingMonitorConfig = z.infer<typeof pingMonitorConfigSchema>;
+
+export const DNS_RECORD_TYPES = ['A', 'AAAA', 'CNAME', 'MX', 'TXT', 'NS'] as const;
+/** DNS resolution (optionally asserting the resolved value contains `expectedValue`). */
+export const dnsMonitorConfigSchema = z.object({
+  hostname: z.string().min(1).max(255),
+  recordType: z.enum(DNS_RECORD_TYPES).default('A'),
+  expectedValue: z.string().max(255).optional(),
+});
+export type DnsMonitorConfig = z.infer<typeof dnsMonitorConfigSchema>;
+
+/** SSL/TLS certificate expiry — down if expired or expiring within `warnDays`. */
+export const sslMonitorConfigSchema = z.object({
+  host: z.string().min(1).max(255),
+  port: z.number().int().min(1).max(65_535).default(443),
+  warnDays: z.number().int().min(1).max(365).default(14),
+});
+export type SslMonitorConfig = z.infer<typeof sslMonitorConfigSchema>;
+
 /** The config schema for each monitor type, keyed by type id. Add a branch per new type. */
 export const MONITOR_CONFIG_SCHEMAS: Partial<
   Record<MonitorTypeId, ZodType<unknown, ZodTypeDef, unknown>>
 > = {
   http: httpMonitorConfigSchema,
+  tcp: tcpMonitorConfigSchema,
+  ping: pingMonitorConfigSchema,
+  dns: dnsMonitorConfigSchema,
+  ssl: sslMonitorConfigSchema,
 };
 
-/** Output type of a parsed monitor config. Becomes a union as more monitor types are added. */
-export type MonitorConfig = HttpMonitorConfig;
+/** Output type of a parsed monitor config — the union of every supported type's config. */
+export type MonitorConfig =
+  | HttpMonitorConfig
+  | TcpMonitorConfig
+  | PingMonitorConfig
+  | DnsMonitorConfig
+  | SslMonitorConfig;
 
 const baseMonitorFields = {
   name: z.string().min(1).max(120),
@@ -61,13 +100,18 @@ const baseMonitorFields = {
 
 export const createMonitorSchema = z.discriminatedUnion('type', [
   z.object({ ...baseMonitorFields, type: z.literal('http'), config: httpMonitorConfigSchema }),
+  z.object({ ...baseMonitorFields, type: z.literal('tcp'), config: tcpMonitorConfigSchema }),
+  z.object({ ...baseMonitorFields, type: z.literal('ping'), config: pingMonitorConfigSchema }),
+  z.object({ ...baseMonitorFields, type: z.literal('dns'), config: dnsMonitorConfigSchema }),
+  z.object({ ...baseMonitorFields, type: z.literal('ssl'), config: sslMonitorConfigSchema }),
 ]);
 export type CreateMonitorInput = z.infer<typeof createMonitorSchema>;
 
 /**
  * Update (PATCH) DTO. `type` is immutable (resolved server-side from the existing monitor) and
  * `projectId` cannot change, so neither appears here. `config`, when present, REPLACES the whole
- * config object (it is NOT deep-merged) — MVP validates the http shape.
+ * config object (it is NOT deep-merged) and is validated against any known type's shape — the
+ * server re-validates against the monitor's actual type.
  */
 export const updateMonitorSchema = z.object({
   name: z.string().min(1).max(120).optional(),
@@ -76,7 +120,15 @@ export const updateMonitorSchema = z.object({
   retryIntervalSeconds: z.number().int().min(5).max(3_600).optional(),
   timeoutMs: z.number().int().min(1_000).max(120_000).optional(),
   isActive: z.boolean().optional(),
-  config: httpMonitorConfigSchema.optional(),
+  config: z
+    .union([
+      httpMonitorConfigSchema,
+      tcpMonitorConfigSchema,
+      pingMonitorConfigSchema,
+      dnsMonitorConfigSchema,
+      sslMonitorConfigSchema,
+    ])
+    .optional(),
 });
 export type UpdateMonitorInput = z.infer<typeof updateMonitorSchema>;
 

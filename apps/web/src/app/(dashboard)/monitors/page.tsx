@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import Link from 'next/link';
-import { type MonitorView, apiFetch } from '@/lib/api';
+import { type MonitorView, apiFetch, monitorTarget } from '@/lib/api';
 import { StatusBadge } from '@/components/status-badge';
 import { Button, Card } from '@/components/ui';
 
@@ -20,7 +20,9 @@ function MonitorRow({ monitor }: { monitor: MonitorView }) {
             <StatusBadge status={monitor.status} />
             <span className="truncate font-medium">{monitor.name}</span>
           </div>
-          <div className="mt-1 truncate text-sm text-slate-500">{monitor.config.url ?? monitor.type}</div>
+          <div className="mt-1 truncate text-sm text-slate-500">
+            <span className="uppercase">{monitor.type}</span> · {monitorTarget(monitor)}
+          </div>
         </div>
         <div className="flex items-center gap-8 text-right">
           <div>

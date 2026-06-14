@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { ApiError, type Heartbeat, type MonitorView, apiFetch } from '@/lib/api';
+import { ApiError, type Heartbeat, type MonitorView, apiFetch, monitorTarget } from '@/lib/api';
 import { HeartbeatBar } from '@/components/heartbeat-bar';
 import { StatusBadge } from '@/components/status-badge';
 import { Button, Card } from '@/components/ui';
@@ -71,7 +71,9 @@ export default function MonitorDetailPage() {
             <StatusBadge status={monitor.status} />
             <h1 className="text-2xl font-bold">{monitor.name}</h1>
           </div>
-          <div className="mt-1 text-sm text-slate-500">{monitor.config.url}</div>
+          <div className="mt-1 text-sm text-slate-500">
+            <span className="uppercase">{monitor.type}</span> · {monitorTarget(monitor)}
+          </div>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => toggle.mutate()}>
