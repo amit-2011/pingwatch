@@ -2,33 +2,59 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, Send } from 'lucide-react';
-import { useState } from 'react';
+import { type FormEvent, useState } from 'react';
 import { ApiError, type ChannelView, apiFetch } from '@/lib/api';
 import { Button, Card, Input, Label } from '@/components/ui';
+
+const TYPE_OPTIONS = [
+  { value: 'telegram', label: 'Telegram' },
+  { value: 'slack', label: 'Slack' },
+  { value: 'email', label: 'Email (SMTP)' },
+] as const;
+
+const SELECT_CLASS =
+  'h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-slate-400 dark:border-slate-700 dark:bg-slate-900';
 
 export default function ChannelsPage() {
   const qc = useQueryClient();
   const { data: channels } = useQuery({ queryKey: ['channels'], queryFn: () => apiFetch<ChannelView[]>('/channels') });
 
   const [showForm, setShowForm] = useState(false);
+  const [type, setType] = useState<'telegram' | 'slack' | 'email'>('telegram');
   const [name, setName] = useState('');
-  const [botToken, setBotToken] = useState('');
-  const [chatId, setChatId] = useState('');
+  const [fields, setFields] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<Record<string, string>>({});
 
+  const set = (k: string, v: string) => setFields((p) => ({ ...p, [k]: v }));
+
+  function buildConfig(): Record<string, unknown> {
+    switch (type) {
+      case 'slack':
+        return { webhookUrl: fields.webhookUrl ?? '' };
+      case 'email':
+        return {
+          host: fields.host ?? '',
+          port: Number(fields.port ?? '587'),
+          secure: fields.secure === 'true',
+          ...(fields.username ? { username: fields.username } : {}),
+          ...(fields.password ? { password: fields.password } : {}),
+          from: fields.from ?? '',
+          to: fields.to ?? '',
+        };
+      default:
+        return { botToken: fields.botToken ?? '', chatId: fields.chatId ?? '' };
+    }
+  }
+
   const create = useMutation({
     mutationFn: () =>
-      apiFetch('/channels', {
-        method: 'POST',
-        body: JSON.stringify({ name, type: 'telegram', config: { botToken, chatId }, isActive: true }),
-      }),
+      apiFetch('/channels', { method: 'POST', body: JSON.stringify({ name, type, config: buildConfig(), isActive: true }) }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['channels'] });
       setShowForm(false);
       setName('');
-      setBotToken('');
-      setChatId('');
+      setFields({});
     },
     onError: (e) => setError(e instanceof ApiError ? e.message : 'Failed to save'),
   });
@@ -36,7 +62,14 @@ export default function ChannelsPage() {
   const test = useMutation({
     mutationFn: (id: string) => apiFetch<{ ok: boolean; message?: string }>(`/channels/${id}/test`, { method: 'POST' }),
     onSuccess: (r, id) => setResults((p) => ({ ...p, [id]: r.ok ? 'Sent ✓' : `Failed: ${r.message ?? 'error'}` })),
+    onError: (e, id) => setResults((p) => ({ ...p, [id]: e instanceof ApiError ? `Failed: ${e.message}` : 'Failed' })),
   });
+
+  function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    create.mutate();
+  }
 
   return (
     <div className="mx-auto max-w-3xl p-8">
@@ -52,30 +85,58 @@ export default function ChannelsPage() {
       </div>
 
       {showForm && (
-        <Card className="mb-6 space-y-4 p-6">
-          <h3 className="font-medium">New Telegram channel</h3>
-          <div className="space-y-1.5">
-            <Label>Name</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Team alerts" />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Bot token</Label>
-            <Input value={botToken} onChange={(e) => setBotToken(e.target.value)} placeholder="123456:ABC-DEF…" />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Chat ID</Label>
-            <Input value={chatId} onChange={(e) => setChatId(e.target.value)} placeholder="-1001234567890" />
-          </div>
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <Button
-            onClick={() => {
-              setError(null);
-              create.mutate();
-            }}
-            disabled={create.isPending}
-          >
-            Save channel
-          </Button>
+        <Card className="mb-6 p-6">
+          <form onSubmit={onSubmit} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="ctype">Type</Label>
+                <select id="ctype" value={type} onChange={(e) => setType(e.target.value as typeof type)} className={SELECT_CLASS}>
+                  {TYPE_OPTIONS.map((t) => (
+                    <option key={t.value} value={t.value}>
+                      {t.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="cname">Name</Label>
+                <Input id="cname" value={name} onChange={(e) => setName(e.target.value)} placeholder="Team alerts" required />
+              </div>
+            </div>
+
+            {type === 'telegram' && (
+              <>
+                <Field label="Bot token" value={fields.botToken ?? ''} onChange={(v) => set('botToken', v)} placeholder="123456:ABC-DEF…" />
+                <Field label="Chat ID" value={fields.chatId ?? ''} onChange={(v) => set('chatId', v)} placeholder="-1001234567890" />
+              </>
+            )}
+            {type === 'slack' && (
+              <Field label="Incoming webhook URL" value={fields.webhookUrl ?? ''} onChange={(v) => set('webhookUrl', v)} placeholder="https://hooks.slack.com/services/…" />
+            )}
+            {type === 'email' && (
+              <>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="col-span-2">
+                    <Field label="SMTP host" value={fields.host ?? ''} onChange={(v) => set('host', v)} placeholder="smtp.example.com" />
+                  </div>
+                  <Field label="Port" value={fields.port ?? '587'} onChange={(v) => set('port', v)} placeholder="587" type="number" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="Username (optional)" value={fields.username ?? ''} onChange={(v) => set('username', v)} placeholder="user@example.com" />
+                  <Field label="Password (optional)" value={fields.password ?? ''} onChange={(v) => set('password', v)} placeholder="••••••••" type="password" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="From" value={fields.from ?? ''} onChange={(v) => set('from', v)} placeholder="alerts@example.com" type="email" />
+                  <Field label="To" value={fields.to ?? ''} onChange={(v) => set('to', v)} placeholder="oncall@example.com" type="email" />
+                </div>
+              </>
+            )}
+
+            {error && <p className="text-sm text-red-600">{error}</p>}
+            <Button type="submit" disabled={create.isPending}>
+              {create.isPending ? 'Saving…' : 'Save channel'}
+            </Button>
+          </form>
         </Card>
       )}
 
@@ -103,6 +164,27 @@ export default function ChannelsPage() {
           <Card className="py-12 text-center text-slate-500">No notification channels yet.</Card>
         )}
       </div>
+    </div>
+  );
+}
+
+function Field({
+  label,
+  value,
+  onChange,
+  placeholder,
+  type = 'text',
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  type?: string;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label>{label}</Label>
+      <Input type={type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />
     </div>
   );
 }
