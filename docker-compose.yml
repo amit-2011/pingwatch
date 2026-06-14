@@ -1,0 +1,15 @@
+services:
+  pingwatch:
+    build: .
+    image: pingwatch/pingwatch:latest
+    ports:
+      - '3001:3001'
+    volumes:
+      - pingwatch-data:/data
+    restart: unless-stopped
+    # Scale to Postgres by pointing DATABASE_URL at your instance:
+    # environment:
+    #   DATABASE_URL: postgresql://user:pass@host:5432/pingwatch
+
+volumes:
+  pingwatch-data: {}

@@ -52,3 +52,16 @@ jobs:
       - run: pnpm lint
       - run: pnpm type-check
       - run: pnpm build
+
+      - name: Smoke — `pingwatch start` boots, migrates, and listens
+        run: |
+          node apps/server/dist/cli.js start --data-dir /tmp/pw-ci --port 3001 &
+          PID=$!
+          ok=0
+          for _ in $(seq 1 60); do
+            if curl -sf http://localhost:3001/api/health | grep -q '"status":"ok"'; then ok=1; break; fi
+            sleep 1
+          done
+          kill "$PID" 2>/dev/null || true
+          if [ "$ok" != "1" ]; then echo "::error::pingwatch start did not become healthy"; exit 1; fi
+          echo "OK: pingwatch start migrated + listened + healthy"
