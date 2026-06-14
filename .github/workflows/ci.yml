@@ -65,3 +65,35 @@ jobs:
           kill "$PID" 2>/dev/null || true
           if [ "$ok" != "1" ]; then echo "::error::pingwatch start did not become healthy"; exit 1; fi
           echo "OK: pingwatch start migrated + listened + healthy"
+
+  migrate-both:
+    name: Migrate both providers (SQLite ⇄ Postgres)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: pw
+          POSTGRES_DB: pingwatch
+        ports:
+          - '5432:5432'
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @pingwatch/db run generate
+      - name: SQLite migrate deploy
+        run: DATABASE_URL="file:/tmp/ci.db" pnpm --filter @pingwatch/db exec prisma migrate deploy
+      - name: Postgres migrate deploy
+        run: DATABASE_URL="postgresql://postgres:pw@localhost:5432/pingwatch" pnpm --filter @pingwatch/db exec prisma migrate deploy --config prisma.config.postgres.ts
