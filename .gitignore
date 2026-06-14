@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+.next/
+out/
+*.tsbuildinfo
+
+# Turborepo
+.turbo/
+
+# Runtime data (PingWatch data dir, SQLite)
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# Secrets / env (commit .env.example only)
+.env
+.env.*
+!.env.example
+secret.key
+
+# Editor / OS
+.DS_Store
+*.log
+
+# Local Claude settings
+.claude/settings.local.json
