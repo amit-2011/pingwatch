@@ -2,8 +2,13 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "rootDir": "./src",
-    "outDir": "./dist"
+    "outDir": "./dist",
+    // Prisma 7's generated client (src/generated-*) is compiled as part of this package.
+    // These two ultra-strict flags trip the generated code, so relax them HERE only — our
+    // own hand-written code in this package stays otherwise strict (and ESLint still bans `any`).
+    "exactOptionalPropertyTypes": false,
+    "noUncheckedIndexedAccess": false
   },
   "include": ["src/**/*.ts"],
-  "exclude": ["dist", "node_modules", "src/generated-sqlite", "src/generated-postgres"]
+  "exclude": ["dist", "node_modules"]
 }

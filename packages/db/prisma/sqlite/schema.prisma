@@ -1,0 +1,327 @@
+// PingWatch canonical data model — SQLite datasource (zero-config self-host default).
+// The Postgres variant (../postgres/schema.prisma) is IDENTICAL except the generator `output`
+// and the datasource `provider`. RULES (CI-enforced): NO DB enums, NO native `Json` — string
+// columns are validated against the @pingwatch/shared unions, and JSON config is stored as String.
+// Phase-3 tables (MetricSample, MaintenanceWindow) arrive via a later additive migration.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../../src/generated-sqlite"
+  moduleFormat = "cjs"
+  runtime      = "nodejs"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships          Membership[]
+  projects             Project[]
+  monitors             Monitor[]
+  notificationChannels NotificationChannel[]
+  statusPages          StatusPage[]
+  incidents            Incident[]
+  apiTokens            ApiToken[]
+
+  @@index([slug])
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String?
+  passwordHash String
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  memberships   Membership[]
+  refreshTokens RefreshToken[]
+  apiTokens     ApiToken[]
+}
+
+model Membership {
+  id             String   @id @default(cuid())
+  userId         String
+  organizationId String
+  role           String   @default("member") // USER_ROLES
+  createdAt      DateTime @default(now())
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+  @@index([organizationId])
+  @@index([userId])
+}
+
+model Project {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  slug           String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  monitors     Monitor[]
+
+  @@unique([organizationId, slug])
+  @@index([organizationId])
+}
+
+model Monitor {
+  id                   String    @id @default(cuid())
+  organizationId       String // denormalized for single-index tenant filtering
+  projectId            String
+  name                 String
+  type                 String    @default("http") // MONITOR_TYPES
+  config               String // stringified JSON, type-specific (validated by @pingwatch/shared)
+  intervalSeconds      Int       @default(60)
+  retries              Int       @default(3)
+  retryIntervalSeconds Int       @default(30)
+  timeoutMs            Int       @default(30000)
+  isActive             Boolean   @default(true)
+  // denormalized live state (engine writes; instant render — no heartbeat scan)
+  status               String    @default("pending") // MONITOR_STATUS
+  lastCheckedAt        DateTime?
+  lastStatusChangeAt   DateTime?
+  lastResponseTime     Int?
+  uptime24h            Float?
+  uptime7d             Float?
+  uptime30d            Float?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  organization  Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project       Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  heartbeats    Heartbeat[]
+  statHourly    StatHourly[]
+  statDaily     StatDaily[]
+  notifications MonitorNotification[]
+  incidents     Incident[]
+  statusItems   StatusPageItem[]
+  apiTokens     ApiToken[]
+
+  @@index([organizationId])
+  @@index([projectId])
+  @@index([organizationId, isActive])
+}
+
+model Heartbeat {
+  id           String   @id @default(cuid())
+  monitorId    String
+  status       Int // HEARTBEAT_STATUS 0/1/2/3
+  responseTime Int?
+  statusCode   Int?
+  message      String?
+  important    Boolean  @default(false) // true ONLY on confirmed transitions
+  retryCount   Int      @default(0)
+  coverageMs   Int      @default(0) // interval this beat covers → duration-weighted uptime
+  createdAt    DateTime @default(now())
+
+  monitor Monitor @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+
+  @@index([monitorId, createdAt])
+  @@index([monitorId, important, createdAt])
+  @@index([createdAt])
+}
+
+// Rollups: uptime%/charts read ONLY from these, never raw Heartbeat.
+model StatHourly {
+  id               String   @id @default(cuid())
+  monitorId        String
+  bucket           DateTime // truncated to the hour (UTC)
+  upCount          Int      @default(0)
+  downCount        Int      @default(0)
+  maintenanceCount Int      @default(0)
+  upMs             Int      @default(0) // duration-weighted uptime source
+  downMs           Int      @default(0)
+  avgResponseTime  Float?
+  minResponseTime  Int?
+  maxResponseTime  Int?
+
+  monitor Monitor @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+
+  @@unique([monitorId, bucket])
+  @@index([monitorId, bucket])
+}
+
+model StatDaily {
+  id               String   @id @default(cuid())
+  monitorId        String
+  bucket           DateTime // truncated to the day (UTC)
+  upCount          Int      @default(0)
+  downCount        Int      @default(0)
+  maintenanceCount Int      @default(0)
+  upMs             Int      @default(0)
+  downMs           Int      @default(0)
+  avgResponseTime  Float?
+  minResponseTime  Int?
+  maxResponseTime  Int?
+
+  monitor Monitor @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+
+  @@unique([monitorId, bucket])
+  @@index([monitorId, bucket])
+}
+
+model NotificationChannel {
+  id             String    @id @default(cuid())
+  organizationId String
+  name           String
+  type           String // CHANNEL_TYPES (provider id)
+  config         String // stringified JSON; secret fields SecretBox-sealed (PLAN §6.7)
+  isActive       Boolean   @default(true)
+  isDefault      Boolean   @default(false) // auto-attach to new monitors
+  lastError      String?
+  lastTestedAt   DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  monitorLinks MonitorNotification[]
+
+  @@index([organizationId])
+}
+
+model MonitorNotification {
+  monitorId      String
+  channelId      String
+  notifyOn       String   @default("down,up") // CSV of NOTIFY_EVENT_TYPES
+  resendEveryMin Int? // null = no repeat
+  createdAt      DateTime @default(now())
+
+  monitor Monitor             @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+  channel NotificationChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@id([monitorId, channelId])
+  @@index([channelId])
+}
+
+model Incident {
+  id             String    @id @default(cuid())
+  organizationId String
+  monitorId      String
+  status         String    @default("open") // INCIDENT_STATUS
+  severity       String    @default("major") // INCIDENT_SEVERITY
+  title          String
+  cause          String? // first failing message
+  startedAt      DateTime  @default(now())
+  acknowledgedAt DateTime?
+  acknowledgedBy String?
+  resolvedAt     DateTime?
+  lastNotifiedAt DateTime?
+  notifyCount    Int       @default(0)
+  isPublished    Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  monitor      Monitor          @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+  updates      IncidentUpdate[]
+
+  @@index([organizationId, status])
+  @@index([monitorId, status])
+}
+
+model IncidentUpdate {
+  id         String   @id @default(cuid())
+  incidentId String
+  kind       String // 'opened'|'notified'|'acknowledged'|'comment'|'resolved'
+  message    String?
+  meta       String? // stringified JSON (e.g. {channelId, providerMessageId, errorKind})
+  status     String? // incident status at time of update
+  createdAt  DateTime @default(now())
+
+  incident Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  @@index([incidentId, createdAt])
+}
+
+model StatusPage {
+  id             String   @id @default(cuid())
+  organizationId String
+  slug           String   @unique // nanoid(16), unguessable public segment
+  title          String
+  description    String?
+  logoUrl        String?
+  themeColor     String?
+  passwordHash   String? // optional gate (argon2id)
+  isPublished    Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  items        StatusPageItem[]
+
+  @@index([organizationId])
+  @@index([slug])
+}
+
+model StatusPageItem {
+  id           String  @id @default(cuid())
+  statusPageId String
+  monitorId    String
+  displayName  String? // curated → never leak internal names
+  groupName    String?
+  sortOrder    Int     @default(0)
+
+  statusPage StatusPage @relation(fields: [statusPageId], references: [id], onDelete: Cascade)
+  monitor    Monitor    @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+
+  @@unique([statusPageId, monitorId])
+  @@index([statusPageId])
+}
+
+model RefreshToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique // sha256(opaque)
+  family    String // rotation family (reuse detection)
+  expiresAt DateTime
+  revokedAt DateTime?
+  userAgent String?
+  ip        String?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model ApiToken {
+  id             String    @id @default(cuid())
+  name           String
+  type           String // TOKEN_TYPES 'agent'|'api'
+  tokenHash      String    @unique // sha256(secret); raw shown once
+  prefix         String // first 8 chars for UI
+  organizationId String
+  monitorId      String? // agent tokens bind to one system-metric monitor
+  scopes         String // JSON-string array e.g. ["metrics:write"]
+  createdById    String?
+  lastUsedAt     DateTime?
+  expiresAt      DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime  @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  monitor      Monitor?     @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+  createdBy    User?        @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([prefix])
+}
+
+model SetupState {
+  id          String    @id @default("singleton")
+  completedAt DateTime?
+}
