@@ -4,6 +4,7 @@
  */
 import { z } from 'zod';
 import type { MonitorStatus } from './constants';
+import type { PublicIncident } from './incident';
 
 export const createStatusPageSchema = z.object({
   title: z.string().min(1).max(120),
@@ -36,4 +37,6 @@ export interface PublicStatusPage {
   themeColor: string | null;
   overall: 'operational' | 'degraded' | 'down';
   items: Array<{ name: string; status: MonitorStatus; uptime24h: number | null; uptime30d: number | null }>;
+  /** Published, active (and recently-resolved) incidents — the public-facing timeline. */
+  incidents: PublicIncident[];
 }

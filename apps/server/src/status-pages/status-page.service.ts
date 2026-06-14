@@ -2,7 +2,10 @@ import { randomBytes } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import type {
   CreateStatusPageInput,
+  IncidentSeverity,
+  IncidentStatus,
   MonitorStatus,
+  PublicIncident,
   PublicStatusPage,
   StatusPageAdminView,
   UpdateStatusPageInput,
@@ -19,6 +22,16 @@ interface PageRow {
   themeColor: string | null;
   isPublished: boolean;
 }
+
+/** How long a resolved incident lingers on the public page before dropping off. */
+const RESOLVED_VISIBLE_MS = 48 * 60 * 60 * 1000;
+
+/** Internal update kinds are remapped to safe, generic public copy — the raw cause never leaks. */
+const PUBLIC_UPDATE_COPY: Record<string, string> = {
+  opened: 'We are investigating an issue affecting this service.',
+  acknowledged: 'The issue has been identified and is being worked on.',
+  resolved: 'This incident has been resolved.',
+};
 
 @Injectable()
 export class StatusPageService {
@@ -74,7 +87,9 @@ export class StatusPageService {
       include: {
         items: {
           orderBy: { sortOrder: 'asc' },
-          include: { monitor: { select: { name: true, status: true, uptime24h: true, uptime30d: true } } },
+          include: {
+            monitor: { select: { id: true, name: true, status: true, uptime24h: true, uptime30d: true } },
+          },
         },
       },
     });
@@ -91,7 +106,41 @@ export class StatusPageService {
       : items.some((i) => i.status === 'pending' || i.status === 'maintenance')
         ? 'degraded'
         : 'operational';
-    return { title: page.title, description: page.description, themeColor: page.themeColor, overall, items };
+
+    const incidents = await this.publicIncidents(
+      page.organizationId,
+      page.items.map((i) => i.monitor.id),
+    );
+    return { title: page.title, description: page.description, themeColor: page.themeColor, overall, items, incidents };
+  }
+
+  /** Published incidents for the page's monitors that are active or resolved within the visible window. */
+  private async publicIncidents(organizationId: string, monitorIds: string[]): Promise<PublicIncident[]> {
+    if (monitorIds.length === 0) return [];
+    const cutoff = new Date(Date.now() - RESOLVED_VISIBLE_MS);
+    const incidents = await this.db.incident.findMany({
+      where: {
+        organizationId,
+        monitorId: { in: monitorIds },
+        isPublished: true,
+        OR: [{ resolvedAt: null }, { resolvedAt: { gte: cutoff } }],
+      },
+      orderBy: { startedAt: 'desc' },
+      include: { updates: { orderBy: { createdAt: 'asc' } } },
+    });
+
+    return incidents.map((inc) => ({
+      title: inc.title,
+      severity: inc.severity as IncidentSeverity,
+      status: inc.status as IncidentStatus,
+      startedAt: inc.startedAt.toISOString(),
+      resolvedAt: inc.resolvedAt?.toISOString() ?? null,
+      updates: inc.updates.flatMap((u) => {
+        // Admin comments pass through verbatim; lifecycle kinds use safe generic copy; rest are dropped.
+        const message = u.kind === 'comment' ? u.message?.trim() : PUBLIC_UPDATE_COPY[u.kind];
+        return message ? [{ message, createdAt: u.createdAt.toISOString() }] : [];
+      }),
+    }));
   }
 
   private async syncItems(statusPageId: string, organizationId: string, monitorIds: string[]): Promise<void> {
