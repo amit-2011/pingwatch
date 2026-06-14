@@ -1,0 +1,22 @@
+{
+  "name": "@pingwatch/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "type-check": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@pingwatch/db": "workspace:*",
+    "@pingwatch/monitor-core": "workspace:*",
+    "@pingwatch/notifications": "workspace:*",
+    "@pingwatch/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2"
+  }
+}
