@@ -42,6 +42,9 @@ import { MemberController } from './members/member.controller';
 import { AgentService } from './agent/agent.service';
 import { AgentGuard } from './agent/agent.guard';
 import { AgentController } from './agent/agent.controller';
+import { StatusPageService } from './status-pages/status-page.service';
+import { StatusPageController } from './status-pages/status-page.controller';
+import { PublicStatusController } from './status-pages/public-status.controller';
 
 export interface AppModuleDeps {
   secret: string;
@@ -80,6 +83,8 @@ export class AppModule {
         OrgController,
         MemberController,
         AgentController,
+        StatusPageController,
+        PublicStatusController,
       ],
       providers: [
         { provide: APP_SECRET, useValue: deps.secret },
@@ -111,6 +116,7 @@ export class AppModule {
         MemberService,
         AgentService,
         AgentGuard,
+        StatusPageService,
         // Global first-run gate: 409 SETUP_REQUIRED until setup completes.
         { provide: APP_GUARD, useClass: SetupGuard },
       ],
