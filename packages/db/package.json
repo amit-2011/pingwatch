@@ -13,7 +13,8 @@
   },
   "files": [
     "dist",
-    "prisma"
+    "prisma",
+    "prisma.config.ts"
   ],
   "scripts": {
     "generate": "prisma generate --schema prisma/sqlite/schema.prisma && prisma generate --schema prisma/postgres/schema.prisma",

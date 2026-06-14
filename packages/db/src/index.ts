@@ -15,6 +15,9 @@ import { PrismaClient as PostgresPrismaClient } from './generated-postgres/clien
 // Canonical typed surface: PrismaClient (type), the `Prisma` namespace, model + input types.
 export * from './generated-sqlite/client';
 
+// First-boot migrate + SQLite tuning (co-located with the schema).
+export { deployMigrations, applySqlitePragmas } from './migrate';
+
 /** The canonical PrismaClient type used across the app (SQLite-generated; structurally shared). */
 export type PingWatchPrismaClient = SqlitePrismaClient;
 
