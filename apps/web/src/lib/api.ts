@@ -73,6 +73,9 @@ let accessToken: string | null = null;
 export function setAccessToken(token: string | null): void {
   accessToken = token;
 }
+export function getAccessToken(): string | null {
+  return accessToken;
+}
 
 function rawFetch(path: string, opts: RequestInit = {}): Promise<Response> {
   const headers = new Headers(opts.headers);
