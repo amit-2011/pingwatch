@@ -7,7 +7,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { deployMigrations, type PingWatchPrismaClient } from '@pingwatch/db';
 import { resolveConfig, type CliFlags } from '../config/resolve';
 import { ensureDataDir } from './paths';
-import { ensureSecret } from './secret';
+import { ensureMasterSecret } from './secret';
 import { initDatabase } from './database';
 import { SecretBoxService } from '../crypto/secret-box.service';
 import { MonitorTypeRegistry } from '../engine/monitor-type.registry';
@@ -39,7 +39,7 @@ async function resolveOrgId(db: PingWatchPrismaClient, orgSlug?: string): Promis
 export async function runImport(file: string, flags: ConfigCliFlags): Promise<void> {
   const config = resolveConfig(flags);
   ensureDataDir(config.dataDir);
-  const secret = ensureSecret(config.dataDir);
+  const secret = await ensureMasterSecret(config);
   deployMigrations(config.databaseUrl);
   const db = await initDatabase(config.databaseUrl);
   try {
@@ -66,7 +66,7 @@ export async function runImport(file: string, flags: ConfigCliFlags): Promise<vo
 export async function runExport(file: string, flags: ConfigCliFlags): Promise<void> {
   const config = resolveConfig(flags);
   ensureDataDir(config.dataDir);
-  ensureSecret(config.dataDir);
+  await ensureMasterSecret(config);
   deployMigrations(config.databaseUrl);
   const db = await initDatabase(config.databaseUrl);
   try {
