@@ -1,6 +1,7 @@
 import { type ArgumentsHost, Catch, type ExceptionFilter, HttpException, HttpStatus } from '@nestjs/common';
 import type { Response } from 'express';
 import type { ErrorCode, ErrorEnvelope } from '@pingwatch/shared';
+import { DomainException } from './domain.exception';
 import { ZodValidationException } from './validation.exception';
 
 const STATUS_TO_CODE: Record<number, ErrorCode> = {
@@ -27,6 +28,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
     if (exception instanceof ZodValidationException) {
       status = HttpStatus.BAD_REQUEST;
       envelope = { code: 'VALIDATION_ERROR', message: 'Validation failed', details: exception.issues };
+    } else if (exception instanceof DomainException) {
+      status = exception.getStatus();
+      envelope = { code: exception.code, message: exception.message };
     } else if (exception instanceof HttpException) {
       status = exception.getStatus();
       const body = exception.getResponse();

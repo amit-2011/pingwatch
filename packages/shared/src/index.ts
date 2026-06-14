@@ -7,3 +7,4 @@ export * from './errors';
 export * from './monitor';
 export * from './notification';
 export * from './plugins';
+export * from './auth';
