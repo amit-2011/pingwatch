@@ -24,6 +24,12 @@ import { SchedulerService } from './engine/scheduler.service';
 import { HeartbeatWriterService } from './engine/heartbeat-writer.service';
 import { RollupService } from './engine/rollup.service';
 import { MonitorEngineService } from './engine/monitor-engine.service';
+import { NotificationProviderRegistry } from './notifications/notification-provider.registry';
+import { IncidentService } from './notifications/incident.service';
+import { DispatchService } from './notifications/dispatch.service';
+import { IncidentListener } from './notifications/incident.listener';
+import { ChannelService } from './notifications/channel.service';
+import { ChannelController } from './notifications/channel.controller';
 
 export interface AppModuleDeps {
   secret: string;
@@ -52,7 +58,7 @@ export class AppModule {
           },
         }),
       ],
-      controllers: [HealthController, SetupController, AuthController],
+      controllers: [HealthController, SetupController, AuthController, ChannelController],
       providers: [
         { provide: APP_SECRET, useValue: deps.secret },
         { provide: PRISMA_CLIENT, useValue: deps.db },
@@ -71,6 +77,11 @@ export class AppModule {
         HeartbeatWriterService,
         RollupService,
         MonitorEngineService,
+        NotificationProviderRegistry,
+        IncidentService,
+        DispatchService,
+        IncidentListener,
+        ChannelService,
         // Global first-run gate: 409 SETUP_REQUIRED until setup completes.
         { provide: APP_GUARD, useClass: SetupGuard },
       ],
