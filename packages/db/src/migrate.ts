@@ -15,21 +15,16 @@ function packageRoot(): string {
 }
 
 /**
- * Apply pending migrations idempotently (`prisma migrate deploy`). SQLite only for MVP — the
- * Postgres migration set is validated/added in P2.7, so a Postgres URL is a no-op here (the
- * schema + generated client stay in parity regardless).
+ * Apply pending migrations idempotently (`prisma migrate deploy`). Picks the SQLite or Postgres
+ * migration set + config by the DATABASE_URL scheme (P2.7).
  */
 export function deployMigrations(databaseUrl: string): void {
   const isPostgres =
     databaseUrl.startsWith('postgres://') || databaseUrl.startsWith('postgresql://');
-  if (isPostgres) {
-    console.warn(
-      '[pingwatch/db] Postgres detected — skipping migrate deploy (migrations added in P2.7).',
-    );
-    return;
-  }
   const prismaCli = localRequire.resolve('prisma/build/index.js');
-  const result = spawnSync(process.execPath, [prismaCli, 'migrate', 'deploy'], {
+  const args = ['migrate', 'deploy'];
+  if (isPostgres) args.push('--config', 'prisma.config.postgres.ts');
+  const result = spawnSync(process.execPath, [prismaCli, ...args], {
     cwd: packageRoot(),
     env: { ...process.env, DATABASE_URL: databaseUrl },
     stdio: 'inherit',
