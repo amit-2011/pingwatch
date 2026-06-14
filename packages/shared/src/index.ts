@@ -8,3 +8,4 @@ export * from './monitor';
 export * from './notification';
 export * from './plugins';
 export * from './auth';
+export * from './status-page';

@@ -1,7 +1,13 @@
 import type { AuthUser, ErrorEnvelope, MonitorStatus } from '@pingwatch/shared';
 
 // Re-export the canonical wire-contract types so the rest of the web app uses ONE source of truth.
-export type { AuthUser, ErrorEnvelope, MonitorStatus } from '@pingwatch/shared';
+export type {
+  AuthUser,
+  ErrorEnvelope,
+  MonitorStatus,
+  StatusPageAdminView,
+  PublicStatusPage,
+} from '@pingwatch/shared';
 
 export class ApiError extends Error {
   constructor(
