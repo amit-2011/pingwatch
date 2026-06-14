@@ -46,6 +46,15 @@ export interface Heartbeat {
   createdAt: string;
 }
 
+export interface MetricSample {
+  cpuPct: number | null;
+  memPct: number | null;
+  diskPct: number | null;
+  netInKbps: number | null;
+  netOutKbps: number | null;
+  createdAt: string;
+}
+
 export interface ChannelView {
   id: string;
   name: string;

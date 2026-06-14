@@ -27,6 +27,7 @@
   "dependencies": {
     "@pingwatch/shared": "workspace:*",
     "ping": "^1.0.0",
+    "systeminformation": "^5.31.7",
     "undici": "^8.4.1"
   }
 }

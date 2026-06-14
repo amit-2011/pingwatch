@@ -51,6 +51,15 @@ export class MonitorController {
     return this.monitors.heartbeats(user.organizationId, id, limit ? Number(limit) : 100);
   }
 
+  @Get('monitors/:id/metrics')
+  metrics(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.monitors.metrics(user.organizationId, id, limit ? Number(limit) : 100);
+  }
+
   @Roles('member')
   @Post('monitors')
   create(

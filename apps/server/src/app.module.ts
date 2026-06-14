@@ -23,6 +23,7 @@ import { MonitorTypeRegistry } from './engine/monitor-type.registry';
 import { CheckRunnerService } from './engine/check-runner.service';
 import { SchedulerService } from './engine/scheduler.service';
 import { HeartbeatWriterService } from './engine/heartbeat-writer.service';
+import { MetricsWriterService } from './engine/metrics-writer.service';
 import { RollupService } from './engine/rollup.service';
 import { MonitorEngineService } from './engine/monitor-engine.service';
 import { NotificationProviderRegistry } from './notifications/notification-provider.registry';
@@ -92,6 +93,7 @@ export class AppModule {
         CheckRunnerService,
         SchedulerService,
         HeartbeatWriterService,
+        MetricsWriterService,
         RollupService,
         MonitorEngineService,
         NotificationProviderRegistry,

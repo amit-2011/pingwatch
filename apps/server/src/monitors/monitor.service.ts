@@ -152,6 +152,16 @@ export class MonitorService {
     });
   }
 
+  async metrics(organizationId: string, id: string, limit: number): Promise<unknown[]> {
+    await this.requireMonitor(organizationId, id);
+    return this.db.metricSample.findMany({
+      where: { monitorId: id },
+      orderBy: { createdAt: 'desc' },
+      take: Math.min(Math.max(limit, 1), 500),
+      select: { cpuPct: true, memPct: true, diskPct: true, netInKbps: true, netOutKbps: true, createdAt: true },
+    });
+  }
+
   private async requireMonitor(organizationId: string, id: string): Promise<MonitorRecord> {
     const monitor = await this.db.monitor.findFirst({ where: { id, organizationId } });
     if (!monitor) throw new DomainException('NOT_FOUND', 'Monitor not found', 404);

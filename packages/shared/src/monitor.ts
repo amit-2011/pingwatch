@@ -69,6 +69,12 @@ export const sslMonitorConfigSchema = z.object({
 });
 export type SslMonitorConfig = z.infer<typeof sslMonitorConfigSchema>;
 
+/** System metrics (CPU/RAM/Disk/Net). `local` = the PingWatch host; `agent` = pushed by an agent. */
+export const systemMonitorConfigSchema = z.object({
+  source: z.enum(['local', 'agent']).default('local'),
+});
+export type SystemMonitorConfig = z.infer<typeof systemMonitorConfigSchema>;
+
 /** The config schema for each monitor type, keyed by type id. Add a branch per new type. */
 export const MONITOR_CONFIG_SCHEMAS: Partial<
   Record<MonitorTypeId, ZodType<unknown, ZodTypeDef, unknown>>
@@ -78,6 +84,7 @@ export const MONITOR_CONFIG_SCHEMAS: Partial<
   ping: pingMonitorConfigSchema,
   dns: dnsMonitorConfigSchema,
   ssl: sslMonitorConfigSchema,
+  system: systemMonitorConfigSchema,
 };
 
 /** Output type of a parsed monitor config — the union of every supported type's config. */
@@ -86,7 +93,8 @@ export type MonitorConfig =
   | TcpMonitorConfig
   | PingMonitorConfig
   | DnsMonitorConfig
-  | SslMonitorConfig;
+  | SslMonitorConfig
+  | SystemMonitorConfig;
 
 const baseMonitorFields = {
   name: z.string().min(1).max(120),
@@ -108,6 +116,7 @@ export const createMonitorSchema = z.discriminatedUnion('type', [
   z.object({ ...baseMonitorFields, type: z.literal('ping'), config: pingMonitorConfigSchema }),
   z.object({ ...baseMonitorFields, type: z.literal('dns'), config: dnsMonitorConfigSchema }),
   z.object({ ...baseMonitorFields, type: z.literal('ssl'), config: sslMonitorConfigSchema }),
+  z.object({ ...baseMonitorFields, type: z.literal('system'), config: systemMonitorConfigSchema }),
 ]);
 export type CreateMonitorInput = z.infer<typeof createMonitorSchema>;
 
@@ -133,6 +142,7 @@ export const updateMonitorSchema = z.object({
       pingMonitorConfigSchema,
       dnsMonitorConfigSchema,
       sslMonitorConfigSchema,
+      systemMonitorConfigSchema,
     ])
     .optional(),
 });
