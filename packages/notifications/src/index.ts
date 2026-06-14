@@ -1,7 +1,12 @@
 /**
- * @pingwatch/notifications — `NotificationProvider` implementations (Telegram first; Slack/Email
- * and more later) behind the plugin interface from @pingwatch/shared.
- *
- * Real contents arrive in T12. Placeholder keeps the package buildable.
+ * @pingwatch/notifications — `NotificationProvider` implementations behind the plugin interface
+ * from @pingwatch/shared. MVP ships Telegram; Slack/Email and more append here in Phase 2/4.
  */
-export const NOTIFICATIONS_PACKAGE = '@pingwatch/notifications' as const;
+import type { NotificationProvider } from '@pingwatch/shared';
+import { telegramProvider } from './telegram.provider';
+
+export { telegramProvider, escapeMarkdownV2 } from './telegram.provider';
+export { renderNotification } from './templating';
+
+/** Every notification provider bundled in this build. The dispatch registry loads these. */
+export const builtinProviders: NotificationProvider[] = [telegramProvider];

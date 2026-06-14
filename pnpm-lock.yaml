@@ -209,6 +209,13 @@ importers:
         version: 5.9.3
 
   packages/notifications:
+    dependencies:
+      '@pingwatch/shared':
+        specifier: workspace:*
+        version: link:../shared
+      undici:
+        specifier: ^8.4.1
+        version: 8.4.1
     devDependencies:
       typescript:
         specifier: ^5.7.2
