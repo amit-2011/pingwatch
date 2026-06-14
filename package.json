@@ -14,7 +14,8 @@
     "type-check": "turbo run type-check",
     "test": "turbo run test",
     "format": "prettier --write \"**/*.{ts,tsx,js,mjs,json,md,yaml,yml}\"",
-    "format:check": "prettier --check \"**/*.{ts,tsx,js,mjs,json,md,yaml,yml}\""
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,mjs,json,md,yaml,yml}\"",
+    "release:version": "node scripts/set-version.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",

@@ -11,5 +11,9 @@ data
 *.db-wal
 *.db-shm
 *.log
+*.tgz
+.publish
+out
+coverage
 PLAN.md
 TASKS.md

@@ -4,12 +4,24 @@
  * Flags: --port, --data-dir, --config. Config precedence is resolved in config/resolve.
  */
 import 'reflect-metadata'; // must load before any NestJS decorator is evaluated
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { cac } from 'cac';
 import type { Command } from 'cac';
 import { runMigrate, startPingWatch } from './main';
 import { runAgent } from './bootstrap/agent';
 import { runExport, runImport } from './bootstrap/import';
 import type { CliFlags } from './config/resolve';
+
+/** The package version, read from the manifest next to dist/ (real once published, 0.0.0 in dev). */
+function packageVersion(): string {
+  try {
+    const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8')) as { version?: string };
+    return pkg.version ?? '0.0.0';
+  } catch {
+    return '0.0.0';
+  }
+}
 
 function normalizeFlags(opts: Record<string, unknown>): CliFlags {
   const flags: CliFlags = {};
@@ -88,7 +100,7 @@ cli
   });
 
 cli.help();
-cli.version('0.0.0');
+cli.version(packageVersion());
 
 async function main(): Promise<void> {
   cli.parse(process.argv, { run: false });
