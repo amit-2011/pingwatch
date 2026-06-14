@@ -3,6 +3,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import type { MonitorTypeId, NotificationEvent } from '@pingwatch/shared';
 import type { PingWatchPrismaClient } from '@pingwatch/db';
 import { PRISMA_CLIENT } from '../common/di-tokens';
+import { MaintenanceService } from '../maintenance/maintenance.service';
 import { DispatchService } from './dispatch.service';
 
 const MINUTE_MS = 60 * 1000;
@@ -26,6 +27,7 @@ export class RepeatNotifyService {
   constructor(
     @Inject(PRISMA_CLIENT) private readonly db: PingWatchPrismaClient,
     private readonly dispatch: DispatchService,
+    private readonly maintenance: MaintenanceService,
   ) {}
 
   @Cron(CronExpression.EVERY_MINUTE)
@@ -37,6 +39,9 @@ export class RepeatNotifyService {
     })) as unknown as OpenIncident[];
 
     for (const incident of incidents) {
+      // Mute repeat alerts while the monitor is under a maintenance window (P3.7).
+      if (await this.maintenance.isUnderMaintenance(incident.organizationId, incident.monitorId)) continue;
+
       const links = await this.db.monitorNotification.findMany({
         where: { monitorId: incident.monitorId },
         include: { channel: true },

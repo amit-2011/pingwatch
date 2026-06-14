@@ -4,6 +4,7 @@ import type { MonitorTypeId, NotificationEvent } from '@pingwatch/shared';
 import type { PingWatchPrismaClient } from '@pingwatch/db';
 import { PRISMA_CLIENT } from '../common/di-tokens';
 import { MONITOR_TRANSITION_EVENT, type MonitorTransitionEvent } from '../engine/scheduler.types';
+import { MaintenanceService } from '../maintenance/maintenance.service';
 import { DispatchService } from './dispatch.service';
 import { IncidentService } from './incident.service';
 
@@ -18,12 +19,21 @@ export class IncidentListener {
     @Inject(PRISMA_CLIENT) private readonly db: PingWatchPrismaClient,
     private readonly incidents: IncidentService,
     private readonly dispatch: DispatchService,
+    private readonly maintenance: MaintenanceService,
   ) {}
 
   @OnEvent(MONITOR_TRANSITION_EVENT)
   async onTransition(transition: MonitorTransitionEvent): Promise<void> {
     const monitor = await this.db.monitor.findUnique({ where: { id: transition.monitorId } });
     if (!monitor) return;
+
+    // Planned downtime (P3.7): keep recording heartbeats but never open an incident or page anyone.
+    if (
+      transition.to === 'down' &&
+      (await this.maintenance.isUnderMaintenance(monitor.organizationId, monitor.id, new Date(transition.at)))
+    ) {
+      return;
+    }
 
     let target: string | undefined;
     try {

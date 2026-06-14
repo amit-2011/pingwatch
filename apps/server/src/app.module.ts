@@ -47,6 +47,8 @@ import { StatusPageController } from './status-pages/status-page.controller';
 import { PublicStatusController } from './status-pages/public-status.controller';
 import { IncidentAdminService } from './incidents/incident.service';
 import { IncidentController } from './incidents/incident.controller';
+import { MaintenanceService } from './maintenance/maintenance.service';
+import { MaintenanceController } from './maintenance/maintenance.controller';
 
 export interface AppModuleDeps {
   secret: string;
@@ -88,6 +90,7 @@ export class AppModule {
         StatusPageController,
         PublicStatusController,
         IncidentController,
+        MaintenanceController,
       ],
       providers: [
         { provide: APP_SECRET, useValue: deps.secret },
@@ -121,6 +124,7 @@ export class AppModule {
         AgentGuard,
         StatusPageService,
         IncidentAdminService,
+        MaintenanceService,
         // Global first-run gate: 409 SETUP_REQUIRED until setup completes.
         { provide: APP_GUARD, useClass: SetupGuard },
       ],
