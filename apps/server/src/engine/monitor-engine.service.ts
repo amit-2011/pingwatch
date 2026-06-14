@@ -56,6 +56,14 @@ export class MonitorEngineService implements OnApplicationBootstrap {
   }
 
   private async launch(monitor: MonitorRow): Promise<void> {
+    // Agent-sourced system monitors are push-based (P3.3) — the engine doesn't schedule a check.
+    if (monitor.type === 'system') {
+      try {
+        if ((JSON.parse(monitor.config) as { source?: string }).source === 'agent') return;
+      } catch {
+        // fall through and schedule
+      }
+    }
     const initialStatus = await this.rehydrateStatus(monitor.id, monitor.status);
     await this.rehydrateRing(monitor.id);
     this.scheduler.startMonitor(this.toSpec(monitor, initialStatus));

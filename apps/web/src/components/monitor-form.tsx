@@ -46,6 +46,7 @@ export function MonitorForm({ monitor }: { monitor?: MonitorView }) {
   const [recordType, setRecordType] = useState(str(cfg.recordType, 'A'));
   const [expectedValue, setExpectedValue] = useState(str(cfg.expectedValue));
   const [warnDays, setWarnDays] = useState(num(cfg.warnDays, 14));
+  const [source, setSource] = useState(str(cfg.source, 'local'));
 
   const [intervalSeconds, setIntervalSeconds] = useState(monitor?.intervalSeconds ?? 60);
   const [retries, setRetries] = useState(monitor?.retries ?? 3);
@@ -57,7 +58,7 @@ export function MonitorForm({ monitor }: { monitor?: MonitorView }) {
   function buildConfig(): Record<string, unknown> {
     switch (type) {
       case 'system':
-        return { source: 'local' };
+        return { source };
       case 'tcp':
         return { host, port };
       case 'ping':
@@ -194,9 +195,18 @@ export function MonitorForm({ monitor }: { monitor?: MonitorView }) {
         )}
 
         {type === 'system' && (
-          <p className="text-sm text-slate-500">
-            Collects CPU, memory, disk, and network metrics from the host running PingWatch. No target needed.
-          </p>
+          <div className="space-y-1.5">
+            <Label htmlFor="source">Metric source</Label>
+            <select id="source" value={source} onChange={(e) => setSource(e.target.value)} className={SELECT_CLASS}>
+              <option value="local">This host (PingWatch server)</option>
+              <option value="agent">Remote agent (pushes metrics)</option>
+            </select>
+            <p className="text-xs text-slate-400">
+              {source === 'agent'
+                ? 'After creating, generate an agent token on the detail page and run `pingwatch agent` on the remote host.'
+                : 'Collects CPU/memory/disk/network from the host running PingWatch.'}
+            </p>
+          </div>
         )}
       </Card>
 

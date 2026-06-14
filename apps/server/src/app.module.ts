@@ -39,6 +39,9 @@ import { RealtimeService } from './realtime/realtime.service';
 import { OrgController } from './orgs/org.controller';
 import { MemberService } from './members/member.service';
 import { MemberController } from './members/member.controller';
+import { AgentService } from './agent/agent.service';
+import { AgentGuard } from './agent/agent.guard';
+import { AgentController } from './agent/agent.controller';
 
 export interface AppModuleDeps {
   secret: string;
@@ -76,6 +79,7 @@ export class AppModule {
         MonitorController,
         OrgController,
         MemberController,
+        AgentController,
       ],
       providers: [
         { provide: APP_SECRET, useValue: deps.secret },
@@ -105,6 +109,8 @@ export class AppModule {
         MonitorService,
         RealtimeService,
         MemberService,
+        AgentService,
+        AgentGuard,
         // Global first-run gate: 409 SETUP_REQUIRED until setup completes.
         { provide: APP_GUARD, useClass: SetupGuard },
       ],

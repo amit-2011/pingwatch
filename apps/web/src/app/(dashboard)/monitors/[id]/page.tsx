@@ -22,6 +22,7 @@ export default function MonitorDetailPage() {
   const qc = useQueryClient();
   const [actionError, setActionError] = useState<string | null>(null);
   const [range, setRange] = useState(60);
+  const [agentToken, setAgentToken] = useState<string | null>(null);
   const onActionError = (e: unknown) =>
     setActionError(e instanceof ApiError ? e.message : 'Action failed');
 
@@ -57,6 +58,11 @@ export default function MonitorDetailPage() {
       void qc.invalidateQueries({ queryKey: ['monitors'] });
       router.push('/monitors');
     },
+    onError: onActionError,
+  });
+  const genToken = useMutation({
+    mutationFn: () => apiFetch<{ token: string }>(`/agent/token/${id}`, { method: 'POST' }),
+    onSuccess: (r) => setAgentToken(r.token),
     onError: onActionError,
   });
 
@@ -116,6 +122,24 @@ export default function MonitorDetailPage() {
       </div>
 
       {actionError && <p className="mb-4 text-sm text-red-600">{actionError}</p>}
+
+      {isSystem && (monitor.config as { source?: string }).source === 'agent' && (
+        <Card className="mb-6 p-5">
+          <div className="mb-2 text-sm font-medium">Remote agent</div>
+          {agentToken ? (
+            <div className="space-y-2">
+              <p className="text-xs text-slate-500">Run this on the remote host (token shown once):</p>
+              <pre className="overflow-x-auto rounded bg-slate-100 p-3 text-xs dark:bg-slate-800">
+                pingwatch agent --server {typeof window !== 'undefined' ? window.location.origin : ''} --token {agentToken}
+              </pre>
+            </div>
+          ) : (
+            <Button size="sm" variant="outline" onClick={() => genToken.mutate()} disabled={genToken.isPending}>
+              Generate agent token
+            </Button>
+          )}
+        </Card>
+      )}
 
       <div className="mb-6 grid grid-cols-3 gap-4">
         {([['24h', monitor.uptime24h], ['7 days', monitor.uptime7d], ['30 days', monitor.uptime30d]] as const).map(

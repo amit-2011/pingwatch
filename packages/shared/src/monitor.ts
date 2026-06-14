@@ -75,6 +75,16 @@ export const systemMonitorConfigSchema = z.object({
 });
 export type SystemMonitorConfig = z.infer<typeof systemMonitorConfigSchema>;
 
+/** Metrics payload pushed by a remote pingwatch-agent (P3.3). */
+export const agentMetricsSchema = z.object({
+  cpuPct: z.number().min(0).max(100).optional(),
+  memPct: z.number().min(0).max(100).optional(),
+  diskPct: z.number().min(0).max(100).optional(),
+  netInKbps: z.number().min(0).optional(),
+  netOutKbps: z.number().min(0).optional(),
+});
+export type AgentMetricsInput = z.infer<typeof agentMetricsSchema>;
+
 /** The config schema for each monitor type, keyed by type id. Add a branch per new type. */
 export const MONITOR_CONFIG_SCHEMAS: Partial<
   Record<MonitorTypeId, ZodType<unknown, ZodTypeDef, unknown>>

@@ -7,6 +7,7 @@ import 'reflect-metadata'; // must load before any NestJS decorator is evaluated
 import { cac } from 'cac';
 import type { Command } from 'cac';
 import { runMigrate, startPingWatch } from './main';
+import { runAgent } from './bootstrap/agent';
 import type { CliFlags } from './config/resolve';
 
 function normalizeFlags(opts: Record<string, unknown>): CliFlags {
@@ -42,6 +43,22 @@ cli
   .option('--data-dir <dir>', 'Data directory')
   .option('--config <file>', 'Path to a config file')
   .action((opts: Record<string, unknown>) => runMigrate(normalizeFlags(opts)));
+
+cli
+  .command('agent', 'Run as a metrics agent — push this host to a PingWatch server')
+  .option('--server <url>', 'PingWatch server URL (e.g. https://watch.example.com)')
+  .option('--token <token>', 'Agent token (pwt_…)')
+  .option('--interval <seconds>', 'Push interval in seconds', { default: '30' })
+  .action((opts: Record<string, unknown>) => {
+    const server = typeof opts.server === 'string' ? opts.server : '';
+    const token = typeof opts.token === 'string' ? opts.token : '';
+    if (!server || !token) {
+      console.error('[agent] --server and --token are required');
+      process.exitCode = 1;
+      return undefined;
+    }
+    return runAgent({ server, token, intervalSeconds: Number(opts.interval ?? 30) });
+  });
 
 cli.help();
 cli.version('0.0.0');
