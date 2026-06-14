@@ -1,8 +1,34 @@
 {
-  "name": "@pingwatch/server",
+  "name": "pingwatch",
   "version": "0.0.0",
-  "private": true,
+  "private": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "description": "Self-hosted, npm-distributed uptime + system monitoring — embedded NestJS + Next.js in one process, SQLite by default (Postgres/Redis opt-in).",
+  "keywords": [
+    "monitoring",
+    "uptime",
+    "status-page",
+    "incidents",
+    "self-hosted",
+    "nestjs",
+    "nextjs",
+    "sqlite"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/amit-2011/pingwatch.git"
+  },
+  "homepage": "https://github.com/amit-2011/pingwatch#readme",
+  "engines": {
+    "node": ">=22.12"
+  },
   "type": "commonjs",
+  "files": [
+    "dist"
+  ],
   "bin": {
     "pingwatch": "./dist/cli.js"
   },

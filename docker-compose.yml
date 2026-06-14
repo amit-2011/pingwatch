@@ -1,15 +1,18 @@
 services:
   pingwatch:
+    # Use the published image (`image: ghcr.io/amit-2011/pingwatch:latest`) or build locally:
     build: .
-    image: pingwatch/pingwatch:latest
+    image: ghcr.io/amit-2011/pingwatch:latest
     ports:
       - '3001:3001'
     volumes:
       - pingwatch-data:/data
     restart: unless-stopped
-    # Scale to Postgres by pointing DATABASE_URL at your instance:
+    # Scale out by pointing at external services (all opt-in):
     # environment:
     #   DATABASE_URL: postgresql://user:pass@host:5432/pingwatch
+    #   REDIS_URL: redis://host:6379
+    #   PINGWATCH_SCHEDULER: bullmq
 
 volumes:
   pingwatch-data: {}

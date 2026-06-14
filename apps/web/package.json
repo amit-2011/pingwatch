@@ -1,8 +1,20 @@
 {
   "name": "@pingwatch/web",
   "version": "0.0.0",
-  "private": true,
+  "private": false,
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
+  "files": [
+    ".next",
+    "public",
+    "src",
+    "next.config.ts",
+    "next-env.d.ts",
+    "postcss.config.mjs",
+    "tsconfig.json"
+  ],
   "scripts": {
     "build": "next build",
     "dev": "next dev",
