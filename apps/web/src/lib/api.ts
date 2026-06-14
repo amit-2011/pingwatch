@@ -33,6 +33,8 @@ export interface MonitorView {
   uptime7d: number | null;
   uptime30d: number | null;
   createdAt: string;
+  notifyChannelIds?: string[];
+  resendEveryMin?: number | null;
 }
 
 export interface Heartbeat {

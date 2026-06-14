@@ -96,6 +96,10 @@ const baseMonitorFields = {
   retryIntervalSeconds: z.number().int().min(5).max(3_600).default(30),
   timeoutMs: z.number().int().min(1_000).max(120_000).default(30_000),
   isActive: z.boolean().default(true),
+  /** Notification channels to alert on this monitor's transitions. */
+  notifyChannelIds: z.array(z.string()).default([]),
+  /** Re-notify cadence (minutes) while an incident stays open; null = notify once. */
+  resendEveryMin: z.number().int().min(1).max(1_440).nullish(),
 };
 
 export const createMonitorSchema = z.discriminatedUnion('type', [
@@ -120,6 +124,8 @@ export const updateMonitorSchema = z.object({
   retryIntervalSeconds: z.number().int().min(5).max(3_600).optional(),
   timeoutMs: z.number().int().min(1_000).max(120_000).optional(),
   isActive: z.boolean().optional(),
+  notifyChannelIds: z.array(z.string()).optional(),
+  resendEveryMin: z.number().int().min(1).max(1_440).nullish(),
   config: z
     .union([
       httpMonitorConfigSchema,

@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DNS_RECORD_TYPES, HTTP_METHODS } from '@pingwatch/shared';
 import { useRouter } from 'next/navigation';
 import { type FormEvent, useState } from 'react';
-import { ApiError, type MonitorView, type Project, apiFetch } from '@/lib/api';
+import { ApiError, type ChannelView, type MonitorView, type Project, apiFetch } from '@/lib/api';
 import { Button, Card, Input, Label } from '@/components/ui';
 
 const TYPE_OPTIONS = [
@@ -29,6 +29,7 @@ export function MonitorForm({ monitor }: { monitor?: MonitorView }) {
   const router = useRouter();
   const qc = useQueryClient();
   const { data: projects } = useQuery({ queryKey: ['projects'], queryFn: () => apiFetch<Project[]>('/projects') });
+  const { data: channels } = useQuery({ queryKey: ['channels'], queryFn: () => apiFetch<ChannelView[]>('/channels') });
   const cfg = (monitor?.config ?? {}) as Record<string, unknown>;
 
   const isEdit = monitor !== undefined;
@@ -48,6 +49,8 @@ export function MonitorForm({ monitor }: { monitor?: MonitorView }) {
   const [intervalSeconds, setIntervalSeconds] = useState(monitor?.intervalSeconds ?? 60);
   const [retries, setRetries] = useState(monitor?.retries ?? 3);
   const [timeoutMs, setTimeoutMs] = useState(monitor?.timeoutMs ?? 30_000);
+  const [notifyChannelIds, setNotifyChannelIds] = useState<string[]>(monitor?.notifyChannelIds ?? []);
+  const [resendEveryMin, setResendEveryMin] = useState(monitor?.resendEveryMin != null ? String(monitor.resendEveryMin) : '');
   const [error, setError] = useState<string | null>(null);
 
   function buildConfig(): Record<string, unknown> {
@@ -68,10 +71,11 @@ export function MonitorForm({ monitor }: { monitor?: MonitorView }) {
   const mutation = useMutation({
     mutationFn: async (): Promise<MonitorView> => {
       const config = buildConfig();
+      const notify = { notifyChannelIds, resendEveryMin: resendEveryMin ? Number(resendEveryMin) : null };
       if (monitor) {
         return apiFetch<MonitorView>(`/monitors/${monitor.id}`, {
           method: 'PATCH',
-          body: JSON.stringify({ name, intervalSeconds, retries, timeoutMs, config }),
+          body: JSON.stringify({ name, intervalSeconds, retries, timeoutMs, config, ...notify }),
         });
       }
       return apiFetch<MonitorView>('/monitors', {
@@ -86,6 +90,7 @@ export function MonitorForm({ monitor }: { monitor?: MonitorView }) {
           timeoutMs,
           isActive: true,
           config,
+          ...notify,
         }),
       });
     },
@@ -205,6 +210,40 @@ export function MonitorForm({ monitor }: { monitor?: MonitorView }) {
         <p className="text-xs text-slate-400">
           A single failure never alerts — the monitor is marked down only after {retries + 1} consecutive failures.
         </p>
+      </Card>
+
+      <Card className="space-y-3 p-6">
+        <h3 className="font-medium">Notifications</h3>
+        {channels && channels.length > 0 ? (
+          <>
+            <div className="space-y-2">
+              {channels.map((c) => (
+                <label key={c.id} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={notifyChannelIds.includes(c.id)}
+                    onChange={(e) =>
+                      setNotifyChannelIds((p) => (e.target.checked ? [...p, c.id] : p.filter((x) => x !== c.id)))
+                    }
+                  />
+                  {c.name} <span className="capitalize text-slate-400">({c.type})</span>
+                </label>
+              ))}
+            </div>
+            <div className="space-y-1.5 pt-2">
+              <Label htmlFor="resend">Re-notify every (minutes, optional)</Label>
+              <Input id="resend" type="number" min={1} value={resendEveryMin} onChange={(e) => setResendEveryMin(e.target.value)} placeholder="e.g. 30" className="max-w-xs" />
+            </div>
+          </>
+        ) : (
+          <p className="text-sm text-slate-500">
+            No channels yet —{' '}
+            <a href="/channels" className="underline">
+              add one
+            </a>{' '}
+            to get alerted.
+          </p>
+        )}
       </Card>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
