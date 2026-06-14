@@ -13,6 +13,8 @@ export type {
   IncidentStatus,
   IncidentSeverity,
   MaintenanceWindowView,
+  EscalationPolicyView,
+  EscalationStepView,
 } from '@pingwatch/shared';
 
 export class ApiError extends Error {

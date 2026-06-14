@@ -3,6 +3,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import type { MonitorTypeId, NotificationEvent } from '@pingwatch/shared';
 import type { PingWatchPrismaClient } from '@pingwatch/db';
 import { PRISMA_CLIENT } from '../common/di-tokens';
+import { EscalationService } from '../escalation/escalation.service';
 import { MaintenanceService } from '../maintenance/maintenance.service';
 import { DispatchService } from './dispatch.service';
 
@@ -28,6 +29,7 @@ export class RepeatNotifyService {
     @Inject(PRISMA_CLIENT) private readonly db: PingWatchPrismaClient,
     private readonly dispatch: DispatchService,
     private readonly maintenance: MaintenanceService,
+    private readonly escalation: EscalationService,
   ) {}
 
   @Cron(CronExpression.EVERY_MINUTE)
@@ -63,6 +65,9 @@ export class RepeatNotifyService {
         data: { lastNotifiedAt: new Date(now), notifyCount: { increment: 1 } },
       });
     }
+
+    // P4.3: page the next escalation step for any incident that has gone too long unacknowledged.
+    await this.escalation.escalateDueIncidents(now);
   }
 
   private buildEvent(incident: OpenIncident): NotificationEvent {

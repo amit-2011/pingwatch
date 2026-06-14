@@ -46,6 +46,9 @@ export type IncidentStatus = (typeof INCIDENT_STATUS)[number];
 export const INCIDENT_SEVERITY = ['minor', 'major', 'critical'] as const;
 export type IncidentSeverity = (typeof INCIDENT_SEVERITY)[number];
 
+/** Upper bound on steps in one escalation chain (P4.3). */
+export const MAX_ESCALATION_STEPS = 10;
+
 export const NOTIFY_EVENT_TYPES = ['down', 'up', 'repeat', 'test', 'cert-expiry', 'threshold'] as const;
 export type NotifyEventType = (typeof NOTIFY_EVENT_TYPES)[number];
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Activity, Bell, Globe, LogOut, Settings, Siren, Users, Wrench } from 'lucide-react';
+import { Activity, Bell, Globe, ListOrdered, LogOut, Settings, Siren, Users, Wrench } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 const NAV = [
   { href: '/monitors', label: 'Monitors', icon: Activity },
   { href: '/incidents', label: 'Incidents', icon: Siren },
+  { href: '/escalation', label: 'Escalation', icon: ListOrdered },
   { href: '/maintenance', label: 'Maintenance', icon: Wrench },
   { href: '/channels', label: 'Notifications', icon: Bell },
   { href: '/status-pages', label: 'Status pages', icon: Globe },

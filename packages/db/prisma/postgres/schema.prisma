@@ -30,6 +30,7 @@ model Organization {
   incidents            Incident[]
   apiTokens            ApiToken[]
   maintenanceWindows   MaintenanceWindow[]
+  escalationPolicies   EscalationPolicy[]
 
   @@index([slug])
 }
@@ -225,12 +226,16 @@ model Incident {
   lastNotifiedAt DateTime?
   notifyCount    Int       @default(0)
   isPublished    Boolean   @default(false)
+  // Escalation (P4.3): the policy stamped at open time + the highest step already paged (0 = none).
+  escalationPolicyId String?
+  lastEscalatedStep  Int    @default(0)
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  monitor      Monitor          @relation(fields: [monitorId], references: [id], onDelete: Cascade)
-  updates      IncidentUpdate[]
+  organization     Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  monitor          Monitor           @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+  escalationPolicy EscalationPolicy? @relation(fields: [escalationPolicyId], references: [id], onDelete: SetNull)
+  updates          IncidentUpdate[]
 
   @@index([organizationId, status])
   @@index([monitorId, status])
@@ -362,4 +367,33 @@ model MaintenanceWindow {
 
   @@index([organizationId])
   @@index([startsAt, endsAt])
+}
+
+// Ordered escalation chain (P4.3): an unacknowledged incident pages each step's channels in turn.
+model EscalationPolicy {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  steps        EscalationStep[]
+  incidents    Incident[]
+
+  @@index([organizationId])
+}
+
+model EscalationStep {
+  id         String @id @default(cuid())
+  policyId   String
+  stepOrder  Int // 1-based; fires when (now - incident.startedAt) >= delayMinutes
+  delayMinutes Int
+  channelIds String // CSV of NotificationChannel ids (mirrors MonitorNotification convention)
+
+  policy EscalationPolicy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+
+  @@unique([policyId, stepOrder])
+  @@index([policyId])
 }

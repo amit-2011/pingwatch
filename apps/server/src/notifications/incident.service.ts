@@ -23,6 +23,14 @@ export class IncidentService {
     });
     if (existing) return existing; // idempotent — one open incident per monitor
 
+    // P4.3: stamp the org's active escalation policy (if any) so the scan has a stable target even
+    // if the policy is later edited/deactivated. MVP = one active policy per org (lowest createdAt).
+    const policy = await this.db.escalationPolicy.findFirst({
+      where: { organizationId: monitor.organizationId, isActive: true },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true },
+    });
+
     const incident = await this.db.incident.create({
       data: {
         organizationId: monitor.organizationId,
@@ -31,6 +39,7 @@ export class IncidentService {
         severity: 'major',
         title: `${monitor.name} is down`,
         cause,
+        escalationPolicyId: policy?.id ?? null,
       },
       select: { id: true },
     });

@@ -49,6 +49,9 @@ import { IncidentAdminService } from './incidents/incident.service';
 import { IncidentController } from './incidents/incident.controller';
 import { MaintenanceService } from './maintenance/maintenance.service';
 import { MaintenanceController } from './maintenance/maintenance.controller';
+import { EscalationService } from './escalation/escalation.service';
+import { EscalationAdminService } from './escalation/escalation-admin.service';
+import { EscalationController } from './escalation/escalation.controller';
 
 export interface AppModuleDeps {
   secret: string;
@@ -91,6 +94,7 @@ export class AppModule {
         PublicStatusController,
         IncidentController,
         MaintenanceController,
+        EscalationController,
       ],
       providers: [
         { provide: APP_SECRET, useValue: deps.secret },
@@ -125,6 +129,8 @@ export class AppModule {
         StatusPageService,
         IncidentAdminService,
         MaintenanceService,
+        EscalationService,
+        EscalationAdminService,
         // Global first-run gate: 409 SETUP_REQUIRED until setup completes.
         { provide: APP_GUARD, useClass: SetupGuard },
       ],
