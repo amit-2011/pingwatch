@@ -67,21 +67,28 @@ export class ApiTokenService {
   async rotate(organizationId: string, id: string): Promise<ApiTokenSecretView> {
     const existing = await this.require(organizationId, id);
     const token = `pwt_${this.tokens.generate().raw}`;
-    const next = await this.db.apiToken.create({
-      data: {
-        name: existing.name,
-        type: 'api',
-        tokenHash: this.tokens.hash(token),
-        prefix: token.slice(0, 12),
-        organizationId,
-        scopes: existing.scopes,
-        family: existing.family ?? randomUUID(),
-        expiresAt: existing.expiresAt,
-      },
-    });
-    await this.db.apiToken.update({
-      where: { id: existing.id },
-      data: { revokedAt: new Date(), rotatedToId: next.id },
+    // Atomic: create the successor + supersede the old token in one transaction, and only if the old
+    // token is still un-rotated. Two concurrent rotations of the same token can't both win (review
+    // fix) — the loser's conditional update returns 0 rows and the transaction rolls back its insert.
+    const next = await this.db.$transaction(async (tx) => {
+      const created = await tx.apiToken.create({
+        data: {
+          name: existing.name,
+          type: 'api',
+          tokenHash: this.tokens.hash(token),
+          prefix: token.slice(0, 12),
+          organizationId,
+          scopes: existing.scopes,
+          family: existing.family ?? randomUUID(),
+          expiresAt: existing.expiresAt,
+        },
+      });
+      const claimed = await tx.apiToken.updateMany({
+        where: { id: existing.id, revokedAt: null, rotatedToId: null },
+        data: { revokedAt: new Date(), rotatedToId: created.id },
+      });
+      if (claimed.count === 0) throw new DomainException('CONFLICT', 'Token was already rotated', 409);
+      return created;
     });
     return { ...this.toView(next), token };
   }

@@ -62,32 +62,33 @@ export class EscalationService {
     const dueSteps = policy.steps.filter(
       (s) => s.stepOrder > incident.lastEscalatedStep && s.delayMinutes <= elapsedMinutes,
     );
-    if (dueSteps.length === 0) return;
+    // Fire only the SINGLE lowest due step per scan — if the cron lagged, advance one step per minute
+    // rather than blasting every overdue step at once (review fix: no paging storm).
+    const step = dueSteps[0];
+    if (!step) return;
 
+    // Atomically claim the step before paging — under transient dual-leadership only the instance
+    // that wins the conditional update dispatches, so the step can't be paged twice (review fix).
+    const claimed = await this.db.incident.updateMany({
+      where: { id: incident.id, status: 'open', acknowledgedAt: null, lastEscalatedStep: { lt: step.stepOrder } },
+      data: { lastEscalatedStep: step.stepOrder },
+    });
+    if (claimed.count === 0) return;
+
+    const ids = step.channelIds.split(',').filter(Boolean);
+    const channels = await this.db.notificationChannel.findMany({
+      where: { organizationId: incident.organizationId, id: { in: ids }, isActive: true },
+    });
     const event = this.buildEvent(incident);
-    let highestFired = incident.lastEscalatedStep;
-
-    for (const step of dueSteps) {
-      const ids = step.channelIds.split(',').filter(Boolean);
-      const channels = await this.db.notificationChannel.findMany({
-        where: { organizationId: incident.organizationId, id: { in: ids }, isActive: true },
-      });
-      for (const channel of channels) await this.dispatch.deliver(channel, event);
-      await this.db.incidentUpdate.create({
-        data: {
-          incidentId: incident.id,
-          kind: 'escalated',
-          message: `Escalated to step ${step.stepOrder}`,
-          meta: JSON.stringify({ stepOrder: step.stepOrder, channelIds: ids }),
-          status: 'open',
-        },
-      });
-      highestFired = Math.max(highestFired, step.stepOrder);
-    }
-
-    await this.db.incident.update({
-      where: { id: incident.id },
-      data: { lastEscalatedStep: highestFired },
+    for (const channel of channels) await this.dispatch.deliver(channel, event);
+    await this.db.incidentUpdate.create({
+      data: {
+        incidentId: incident.id,
+        kind: 'escalated',
+        message: `Escalated to step ${step.stepOrder}`,
+        meta: JSON.stringify({ stepOrder: step.stepOrder, channelIds: ids }),
+        status: 'open',
+      },
     });
   }
 

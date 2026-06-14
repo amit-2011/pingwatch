@@ -87,6 +87,11 @@ export class OidcStrategy {
     }
     if (payload.nonce !== nonce) throw new DomainException('UNAUTHORIZED', 'OIDC nonce mismatch', 401);
 
+    // The email is the account key, so it MUST be verified by the IdP — otherwise an IdP that lets a
+    // user self-assert any address would allow takeover of an existing PingWatch account by email.
+    if (payload.email_verified !== true) {
+      throw new DomainException('UNAUTHORIZED', 'OIDC email is not verified by the identity provider', 401);
+    }
     const email = payload[this.auth.oidcEmailClaim];
     if (typeof email !== 'string') throw new DomainException('UNAUTHORIZED', 'OIDC id_token missing email claim', 401);
     const groupsClaim = payload[this.auth.oidcGroupsClaim];

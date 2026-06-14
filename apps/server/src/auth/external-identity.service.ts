@@ -8,6 +8,10 @@ import { DomainException } from '../common/domain.exception';
 import { PasswordService } from '../crypto/password.service';
 import type { AuthenticatedUser } from './authenticated-user';
 
+function isUniqueViolation(err: unknown): boolean {
+  return typeof err === 'object' && err !== null && (err as { code?: string }).code === 'P2002';
+}
+
 /**
  * Maps an externally-authenticated identity (reverse-proxy header or OIDC) to a PingWatch
  * User + Membership (P4.5). New users are auto-provisioned (if enabled) into the seeded default org
@@ -22,8 +26,11 @@ export class ExternalIdentityService {
     private readonly passwords: PasswordService,
   ) {}
 
-  /** Resolve the identity to a principal, provisioning the user/membership on first sight. */
-  async provisionUser(identity: ExternalIdentity): Promise<AuthenticatedUser> {
+  /**
+   * Resolve the identity to a principal, provisioning the user/membership on first sight. The active
+   * org follows the X-Pingwatch-Org selector (if the user is a member), else their first membership.
+   */
+  async provisionUser(identity: ExternalIdentity, requestedOrgId?: string): Promise<AuthenticatedUser> {
     const email = identity.email.toLowerCase();
     const role = this.mapRole(identity.groups);
 
@@ -34,20 +41,36 @@ export class ExternalIdentityService {
       }
       const org = await this.requireDefaultOrg();
       const passwordHash = await this.passwords.hash(randomBytes(32).toString('hex'));
-      user = await this.db.user.create({ data: { email, name: identity.name ?? null, passwordHash } });
-      await this.db.membership.create({ data: { userId: user.id, organizationId: org.id, role } });
+      try {
+        const created = await this.db.user.create({ data: { email, name: identity.name ?? null, passwordHash } });
+        await this.db.membership.create({ data: { userId: created.id, organizationId: org.id, role } });
+        user = created;
+      } catch (err) {
+        // Concurrent first-time provisioning of the same email — the loser re-reads the winner's row.
+        if (!isUniqueViolation(err)) throw err;
+        user = await this.db.user.findUnique({ where: { email } });
+        if (!user) throw err;
+      }
     }
 
-    const membership = await this.db.membership.findFirst({
+    // Deactivated accounts are locked out on EVERY auth path (mirrors jwt-auth.guard / local login).
+    if (!user.isActive) {
+      throw new DomainException('UNAUTHORIZED', 'Account is deactivated', 401);
+    }
+
+    let membership =
+      requestedOrgId && requestedOrgId.length > 0
+        ? await this.db.membership.findFirst({ where: { userId: user.id, organizationId: requestedOrgId } })
+        : null;
+    membership ??= await this.db.membership.findFirst({
       where: { userId: user.id },
       orderBy: { createdAt: 'asc' },
     });
     if (!membership) {
       const org = await this.requireDefaultOrg();
-      const created = await this.db.membership.create({
+      membership = await this.db.membership.create({
         data: { userId: user.id, organizationId: org.id, role },
       });
-      return this.toPrincipal(user, created.organizationId, created.role as UserRole);
     }
     return this.toPrincipal(user, membership.organizationId, membership.role as UserRole);
   }
