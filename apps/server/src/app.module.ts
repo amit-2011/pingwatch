@@ -31,6 +31,8 @@ import { DispatchService } from './notifications/dispatch.service';
 import { IncidentListener } from './notifications/incident.listener';
 import { ChannelService } from './notifications/channel.service';
 import { ChannelController } from './notifications/channel.controller';
+import { MonitorService } from './monitors/monitor.service';
+import { MonitorController } from './monitors/monitor.controller';
 
 export interface AppModuleDeps {
   secret: string;
@@ -59,7 +61,14 @@ export class AppModule {
           },
         }),
       ],
-      controllers: [HealthController, SystemController, SetupController, AuthController, ChannelController],
+      controllers: [
+        HealthController,
+        SystemController,
+        SetupController,
+        AuthController,
+        ChannelController,
+        MonitorController,
+      ],
       providers: [
         { provide: APP_SECRET, useValue: deps.secret },
         { provide: PRISMA_CLIENT, useValue: deps.db },
@@ -83,6 +92,7 @@ export class AppModule {
         DispatchService,
         IncidentListener,
         ChannelService,
+        MonitorService,
         // Global first-run gate: 409 SETUP_REQUIRED until setup completes.
         { provide: APP_GUARD, useClass: SetupGuard },
       ],
