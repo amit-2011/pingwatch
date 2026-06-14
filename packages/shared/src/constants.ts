@@ -22,8 +22,19 @@ export type UserRole = (typeof USER_ROLES)[number];
 /** Higher rank ⇒ more privilege. Use `roleMeets` rather than comparing ranks directly. */
 export const ROLE_RANK = { viewer: 0, member: 1, admin: 2 } as const satisfies Record<UserRole, number>;
 
-export const CHANNEL_TYPES = ['telegram', 'slack', 'email', 'discord', 'webhook'] as const;
-/** Notification channel/provider id. MVP ships `telegram` only. */
+export const CHANNEL_TYPES = [
+  'telegram',
+  'slack',
+  'email',
+  'discord',
+  'webhook',
+  'msteams',
+  'pushover',
+  'gotify',
+  'twilio',
+  'whatsapp',
+] as const;
+/** Notification channel/provider id — the single source of truth for the provider plugin ids. */
 export type ChannelType = (typeof CHANNEL_TYPES)[number];
 
 export const TOKEN_TYPES = ['agent', 'api'] as const;

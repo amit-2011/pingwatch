@@ -3,14 +3,22 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, Send } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
+import type { ChannelType } from '@pingwatch/shared';
 import { ApiError, type ChannelView, apiFetch } from '@/lib/api';
 import { Button, Card, Input, Label } from '@/components/ui';
 
-const TYPE_OPTIONS = [
+const TYPE_OPTIONS: ReadonlyArray<{ value: ChannelType; label: string }> = [
   { value: 'telegram', label: 'Telegram' },
   { value: 'slack', label: 'Slack' },
   { value: 'email', label: 'Email (SMTP)' },
-] as const;
+  { value: 'discord', label: 'Discord' },
+  { value: 'webhook', label: 'Webhook' },
+  { value: 'msteams', label: 'Microsoft Teams' },
+  { value: 'pushover', label: 'Pushover' },
+  { value: 'gotify', label: 'Gotify' },
+  { value: 'twilio', label: 'Twilio SMS' },
+  { value: 'whatsapp', label: 'WhatsApp' },
+];
 
 const SELECT_CLASS =
   'h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-slate-400 dark:border-slate-700 dark:bg-slate-900';
@@ -20,7 +28,7 @@ export default function ChannelsPage() {
   const { data: channels } = useQuery({ queryKey: ['channels'], queryFn: () => apiFetch<ChannelView[]>('/channels') });
 
   const [showForm, setShowForm] = useState(false);
-  const [type, setType] = useState<'telegram' | 'slack' | 'email'>('telegram');
+  const [type, setType] = useState<ChannelType>('telegram');
   const [name, setName] = useState('');
   const [fields, setFields] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +48,35 @@ export default function ChannelsPage() {
           ...(fields.username ? { username: fields.username } : {}),
           ...(fields.password ? { password: fields.password } : {}),
           from: fields.from ?? '',
+          to: fields.to ?? '',
+        };
+      case 'discord':
+        return {
+          webhookUrl: fields.webhookUrl ?? '',
+          ...(fields.username ? { username: fields.username } : {}),
+        };
+      case 'webhook':
+        return {
+          url: fields.url ?? '',
+          ...(fields.authHeader ? { headers: { Authorization: fields.authHeader } } : {}),
+        };
+      case 'msteams':
+        return { webhookUrl: fields.webhookUrl ?? '' };
+      case 'pushover':
+        return { appToken: fields.appToken ?? '', userKey: fields.userKey ?? '' };
+      case 'gotify':
+        return { serverUrl: fields.serverUrl ?? '', appToken: fields.appToken ?? '' };
+      case 'twilio':
+        return {
+          accountSid: fields.accountSid ?? '',
+          authToken: fields.authToken ?? '',
+          from: fields.from ?? '',
+          to: fields.to ?? '',
+        };
+      case 'whatsapp':
+        return {
+          phoneNumberId: fields.phoneNumberId ?? '',
+          accessToken: fields.accessToken ?? '',
           to: fields.to ?? '',
         };
       default:
@@ -129,6 +166,52 @@ export default function ChannelsPage() {
                   <Field label="From" value={fields.from ?? ''} onChange={(v) => set('from', v)} placeholder="alerts@example.com" type="email" />
                   <Field label="To" value={fields.to ?? ''} onChange={(v) => set('to', v)} placeholder="oncall@example.com" type="email" />
                 </div>
+              </>
+            )}
+            {type === 'discord' && (
+              <>
+                <Field label="Webhook URL" value={fields.webhookUrl ?? ''} onChange={(v) => set('webhookUrl', v)} placeholder="https://discord.com/api/webhooks/…" />
+                <Field label="Bot username (optional)" value={fields.username ?? ''} onChange={(v) => set('username', v)} placeholder="PingWatch" />
+              </>
+            )}
+            {type === 'webhook' && (
+              <>
+                <Field label="Endpoint URL" value={fields.url ?? ''} onChange={(v) => set('url', v)} placeholder="https://example.com/hooks/pingwatch" />
+                <Field label="Authorization header (optional)" value={fields.authHeader ?? ''} onChange={(v) => set('authHeader', v)} placeholder="Bearer …" type="password" />
+              </>
+            )}
+            {type === 'msteams' && (
+              <Field label="Webhook URL" value={fields.webhookUrl ?? ''} onChange={(v) => set('webhookUrl', v)} placeholder="https://outlook.office.com/webhook/…" />
+            )}
+            {type === 'pushover' && (
+              <>
+                <Field label="Application token" value={fields.appToken ?? ''} onChange={(v) => set('appToken', v)} placeholder="azGD…" type="password" />
+                <Field label="User key" value={fields.userKey ?? ''} onChange={(v) => set('userKey', v)} placeholder="uQiR…" type="password" />
+              </>
+            )}
+            {type === 'gotify' && (
+              <>
+                <Field label="Server URL" value={fields.serverUrl ?? ''} onChange={(v) => set('serverUrl', v)} placeholder="https://gotify.example.com" />
+                <Field label="Application token" value={fields.appToken ?? ''} onChange={(v) => set('appToken', v)} placeholder="A…" type="password" />
+              </>
+            )}
+            {type === 'twilio' && (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="Account SID" value={fields.accountSid ?? ''} onChange={(v) => set('accountSid', v)} placeholder="AC…" />
+                  <Field label="Auth token" value={fields.authToken ?? ''} onChange={(v) => set('authToken', v)} placeholder="••••••••" type="password" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="From (E.164)" value={fields.from ?? ''} onChange={(v) => set('from', v)} placeholder="+15555550100" />
+                  <Field label="To (E.164)" value={fields.to ?? ''} onChange={(v) => set('to', v)} placeholder="+15555550199" />
+                </div>
+              </>
+            )}
+            {type === 'whatsapp' && (
+              <>
+                <Field label="Phone number ID" value={fields.phoneNumberId ?? ''} onChange={(v) => set('phoneNumberId', v)} placeholder="1029384756…" />
+                <Field label="Access token" value={fields.accessToken ?? ''} onChange={(v) => set('accessToken', v)} placeholder="EAAG…" type="password" />
+                <Field label="To (E.164)" value={fields.to ?? ''} onChange={(v) => set('to', v)} placeholder="+15555550199" />
               </>
             )}
 
