@@ -1,4 +1,5 @@
 import { type DynamicModule, Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { LoggerModule } from 'nestjs-pino';
 import type { PingWatchPrismaClient } from '@pingwatch/db';
 import type { ResolvedConfig } from './config/schema';
@@ -9,6 +10,12 @@ import { SecretBoxService } from './crypto/secret-box.service';
 import { TokenService } from './crypto/token.service';
 import { AuthJwtService } from './auth/jwt.service';
 import { RefreshTokenService } from './auth/refresh-token.service';
+import { AuthService } from './auth/auth.service';
+import { AuthController } from './auth/auth.controller';
+import { SetupController } from './auth/setup.controller';
+import { JwtAuthGuard } from './auth/jwt-auth.guard';
+import { RolesGuard } from './auth/roles.guard';
+import { SetupGuard } from './auth/setup.guard';
 
 export interface AppModuleDeps {
   secret: string;
@@ -35,7 +42,7 @@ export class AppModule {
           },
         }),
       ],
-      controllers: [HealthController],
+      controllers: [HealthController, SetupController, AuthController],
       providers: [
         { provide: APP_SECRET, useValue: deps.secret },
         { provide: PRISMA_CLIENT, useValue: deps.db },
@@ -45,6 +52,11 @@ export class AppModule {
         TokenService,
         AuthJwtService,
         RefreshTokenService,
+        AuthService,
+        JwtAuthGuard,
+        RolesGuard,
+        // Global first-run gate: 409 SETUP_REQUIRED until setup completes.
+        { provide: APP_GUARD, useClass: SetupGuard },
       ],
       exports: [
         APP_SECRET,

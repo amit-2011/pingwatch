@@ -12,6 +12,7 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { NestFactory } from '@nestjs/core';
 import { ExpressAdapter } from '@nestjs/platform-express';
+import cookieParser from 'cookie-parser';
 import express from 'express';
 import helmet from 'helmet';
 import next from 'next';
@@ -52,8 +53,9 @@ export async function startServer(options: StartServerOptions): Promise<ServerHa
   await nextApp.prepare();
 
   const expressApp = express();
-  // (1) security headers + body parsers FIRST, scoped to /api only (Next manages its own).
+  // (1) security headers + cookie + body parsers FIRST, scoped to /api only (Next manages its own).
   expressApp.use('/api', helmet());
+  expressApp.use('/api', cookieParser());
   expressApp.use('/api', express.json());
   expressApp.use('/api', express.urlencoded({ extended: true }));
 
