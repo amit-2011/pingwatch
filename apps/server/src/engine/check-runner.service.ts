@@ -21,6 +21,11 @@ export class CheckRunnerService {
     this.limit = createLimiter(config.maxConcurrency);
   }
 
+  /** Number of checks currently executing (self-observability — exposed via /api/system). */
+  inFlight(): number {
+    return this.limit.inFlight();
+  }
+
   run(type: string, rawConfig: unknown, timeoutMs: number): Promise<CheckResult> {
     const monitorType = this.registry.get(type);
     if (!monitorType) {

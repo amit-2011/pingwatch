@@ -6,6 +6,7 @@ import { LoggerModule } from 'nestjs-pino';
 import type { PingWatchPrismaClient } from '@pingwatch/db';
 import type { ResolvedConfig } from './config/schema';
 import { HealthController } from './health/health.controller';
+import { SystemController } from './health/system.controller';
 import { APP_SECRET, PINGWATCH_CONFIG, PRISMA_CLIENT } from './common/di-tokens';
 import { PasswordService } from './crypto/password.service';
 import { SecretBoxService } from './crypto/secret-box.service';
@@ -58,7 +59,7 @@ export class AppModule {
           },
         }),
       ],
-      controllers: [HealthController, SetupController, AuthController, ChannelController],
+      controllers: [HealthController, SystemController, SetupController, AuthController, ChannelController],
       providers: [
         { provide: APP_SECRET, useValue: deps.secret },
         { provide: PRISMA_CLIENT, useValue: deps.db },
