@@ -60,6 +60,22 @@ export interface Project {
   slug: string;
 }
 
+/** A readable target string for any monitor type (for list/detail display). */
+export function monitorTarget(m: MonitorView): string {
+  const c = m.config;
+  switch (m.type) {
+    case 'tcp':
+    case 'ssl':
+      return `${String(c.host ?? '')}:${String(c.port ?? '')}`;
+    case 'ping':
+      return String(c.host ?? '');
+    case 'dns':
+      return `${String(c.recordType ?? 'A')} ${String(c.hostname ?? '')}`;
+    default:
+      return c.url ?? m.type;
+  }
+}
+
 let accessToken: string | null = null;
 export function setAccessToken(token: string | null): void {
   accessToken = token;

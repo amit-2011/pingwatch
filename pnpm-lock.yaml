@@ -227,10 +227,16 @@ importers:
       '@pingwatch/shared':
         specifier: workspace:*
         version: link:../shared
+      ping:
+        specifier: ^1.0.0
+        version: 1.0.0
       undici:
         specifier: ^8.4.1
         version: 8.4.1
     devDependencies:
+      '@types/ping':
+        specifier: ^0.4.4
+        version: 0.4.4
       typescript:
         specifier: ^5.7.2
         version: 5.9.3
@@ -1017,6 +1023,9 @@ packages:
 
   '@types/pg@8.20.0':
     resolution: {integrity: sha512-bEPFOaMAHTEP1EzpvHTbmwR8UsFyHSKsRisLIHVMXnpNefSbGA1bD6CVy+qKjGSqmZqNqBDV2azOBo8TgkcVow==}
+
+  '@types/ping@0.4.4':
+    resolution: {integrity: sha512-ifvo6w2f5eJYlXm+HiVx67iJe8WZp87sfa683nlqED5Vnt9Z93onkokNoWqOG21EaE8fMxyKPobE+mkPEyxsdw==}
 
   '@types/qs@6.15.1':
     resolution: {integrity: sha512-GZHUBZR9hckSUhrxmp1nG6NwdpM9fCunJwyThLW1X3AyHgd9IlHb6VANpQQqDr2o/qQp6McZ3y/IA2rVzKzSbw==}
@@ -2177,6 +2186,10 @@ packages:
   picomatch@4.0.4:
     resolution: {integrity: sha512-QP88BAKvMam/3NxH6vj2o21R6MjxZUAd6nlwAS/pnGvN9IVLocLHxGYIzFhg6fUQ+5th6P4dv4eW9jX3DSIj7A==}
     engines: {node: '>=12'}
+
+  ping@1.0.0:
+    resolution: {integrity: sha512-3dxdgGtV+7P/EVo42JhkGSomeO/0GGicSz3mI/yK+AI+VGNAOfakw5XfcbGI4IjyBY+ZZwvuRXdhnNF2uliKew==}
+    engines: {node: '>=22.0.0'}
 
   pino-abstract-transport@3.0.0:
     resolution: {integrity: sha512-wlfUczU+n7Hy/Ha5j9a/gZNy7We5+cXp8YL+X+PG8S0KXxw7n/JXA3c46Y0zQznIJ83URJiwy7Lh56WLokNuxg==}
@@ -3373,6 +3386,8 @@ snapshots:
       pg-protocol: 1.14.0
       pg-types: 2.2.0
 
+  '@types/ping@0.4.4': {}
+
   '@types/qs@6.15.1': {}
 
   '@types/range-parser@1.2.7': {}
@@ -4501,6 +4516,8 @@ snapshots:
   picocolors@1.1.1: {}
 
   picomatch@4.0.4: {}
+
+  ping@1.0.0: {}
 
   pino-abstract-transport@3.0.0:
     dependencies:
