@@ -16,6 +16,7 @@
   "dependencies": {
     "@nestjs/common": "^11.1.26",
     "@nestjs/core": "^11.1.26",
+    "@nestjs/event-emitter": "^3.1.0",
     "@nestjs/platform-express": "^11.1.26",
     "@pingwatch/db": "workspace:*",
     "@pingwatch/monitor-core": "workspace:*",
