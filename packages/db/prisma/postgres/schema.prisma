@@ -29,6 +29,7 @@ model Organization {
   statusPages          StatusPage[]
   incidents            Incident[]
   apiTokens            ApiToken[]
+  maintenanceWindows   MaintenanceWindow[]
 
   @@index([slug])
 }
@@ -110,6 +111,8 @@ model Monitor {
   incidents     Incident[]
   statusItems   StatusPageItem[]
   apiTokens     ApiToken[]
+  metricSamples MetricSample[]
+  maintenanceWindows MaintenanceWindow[]
 
   @@index([organizationId])
   @@index([projectId])
@@ -324,4 +327,39 @@ model ApiToken {
 model SetupState {
   id          String    @id @default("singleton")
   completedAt DateTime?
+}
+
+// ----- Phase 3: system metrics + maintenance windows (additive migration) -----
+
+// Multi-value system metric sample (a single-value Heartbeat can't hold CPU+RAM+disk+net).
+model MetricSample {
+  id         String   @id @default(cuid())
+  monitorId  String
+  cpuPct     Float?
+  memPct     Float?
+  diskPct    Float?
+  netInKbps  Float?
+  netOutKbps Float?
+  createdAt  DateTime @default(now())
+
+  monitor Monitor @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+
+  @@index([monitorId, createdAt])
+}
+
+// Planned downtime — suppresses alerts for a monitor (or the whole org when monitorId is null).
+model MaintenanceWindow {
+  id             String   @id @default(cuid())
+  organizationId String
+  monitorId      String?
+  title          String
+  startsAt       DateTime
+  endsAt         DateTime
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  monitor      Monitor?     @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([startsAt, endsAt])
 }
