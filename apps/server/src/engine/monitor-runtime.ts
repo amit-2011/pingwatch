@@ -50,15 +50,17 @@ export class MonitorRuntime {
     }
 
     this.failCount += 1;
-    if (this.failCount >= downThreshold) {
-      const wasAlreadyDown = previous === 'down';
+    const wasConfirmedDown = previous === 'down';
+    // Already-confirmed down stays down (covers rehydration: a restored 'down' monitor that is
+    // still failing must NOT drop back to 'pending' and re-alert).
+    if (wasConfirmedDown || this.failCount >= downThreshold) {
       this.status = 'down';
       return {
         status: 'down',
         beatStatus: HEARTBEAT_STATUS.DOWN,
-        important: !wasAlreadyDown, // first confirmation → notify
+        important: !wasConfirmedDown, // first confirmation → notify; subsequent downs silent
         failCount: this.failCount,
-        changed: !wasAlreadyDown,
+        changed: !wasConfirmedDown,
       };
     }
 

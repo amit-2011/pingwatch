@@ -1,9 +1,11 @@
 import { Inject, Injectable, Logger, type OnApplicationBootstrap } from '@nestjs/common';
-import type { MonitorStatus } from '@pingwatch/shared';
+import { HEARTBEAT_STATUS, type HeartbeatStatus, type MonitorStatus } from '@pingwatch/shared';
 import type { PingWatchPrismaClient } from '@pingwatch/db';
 import { PRISMA_CLIENT } from '../common/di-tokens';
+import { HeartbeatWriterService } from './heartbeat-writer.service';
 import { SchedulerService } from './scheduler.service';
 import type { MonitorSpec } from './scheduler.types';
+import { DAY_MS } from './time-buckets';
 
 interface MonitorRow {
   id: string;
@@ -18,9 +20,10 @@ interface MonitorRow {
 }
 
 /**
- * Owns the lifecycle of running monitors: loads active monitors on boot and registers them with
- * the scheduler; exposes start/stop/restart for CRUD (T16). Builds a MonitorSpec from a row,
- * parsing the stored `config` JSON string.
+ * Owns the lifecycle of running monitors (PLAN §3.0). On boot — and on every (re)start — it
+ * REHYDRATES each monitor from the DB: restores the last CONFIRMED status (never `pending`, so a
+ * monitor that was mid-confirmation at crash can't spuriously re-alert) and backfills the 24h ring
+ * from recent heartbeats so uptime is correct immediately. Then registers it with the scheduler.
  */
 @Injectable()
 export class MonitorEngineService implements OnApplicationBootstrap {
@@ -29,30 +32,62 @@ export class MonitorEngineService implements OnApplicationBootstrap {
   constructor(
     @Inject(PRISMA_CLIENT) private readonly db: PingWatchPrismaClient,
     private readonly scheduler: SchedulerService,
+    private readonly writer: HeartbeatWriterService,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
     const monitors = await this.db.monitor.findMany({ where: { isActive: true } });
-    for (const monitor of monitors) this.scheduler.startMonitor(this.toSpec(monitor));
+    for (const monitor of monitors) await this.launch(monitor);
     if (monitors.length > 0) this.logger.log(`Engine started ${monitors.length} monitor(s)`);
   }
 
   async start(monitorId: string): Promise<void> {
     const monitor = await this.db.monitor.findUnique({ where: { id: monitorId } });
-    if (monitor?.isActive) this.scheduler.startMonitor(this.toSpec(monitor));
+    if (monitor?.isActive) await this.launch(monitor);
   }
 
   async restart(monitorId: string): Promise<void> {
-    const monitor = await this.db.monitor.findUnique({ where: { id: monitorId } });
-    if (monitor?.isActive) this.scheduler.restartMonitor(this.toSpec(monitor));
-    else this.scheduler.stopMonitor(monitorId);
+    this.scheduler.stopMonitor(monitorId);
+    await this.start(monitorId);
   }
 
   stop(monitorId: string): void {
     this.scheduler.stopMonitor(monitorId);
   }
 
-  private toSpec(monitor: MonitorRow): MonitorSpec {
+  private async launch(monitor: MonitorRow): Promise<void> {
+    const initialStatus = await this.rehydrateStatus(monitor.id, monitor.status);
+    await this.rehydrateRing(monitor.id);
+    this.scheduler.startMonitor(this.toSpec(monitor, initialStatus));
+  }
+
+  /** The last UP/DOWN heartbeat is the confirmed status; PENDING beats are ignored. */
+  private async rehydrateStatus(monitorId: string, stored: string): Promise<MonitorStatus> {
+    const last = await this.db.heartbeat.findFirst({
+      where: { monitorId, status: { in: [HEARTBEAT_STATUS.UP, HEARTBEAT_STATUS.DOWN] } },
+      orderBy: { createdAt: 'desc' },
+      select: { status: true },
+    });
+    if (last) return last.status === HEARTBEAT_STATUS.UP ? 'up' : 'down';
+    return stored === 'up' || stored === 'down' ? stored : 'pending';
+  }
+
+  private async rehydrateRing(monitorId: string): Promise<void> {
+    const beats = await this.db.heartbeat.findMany({
+      where: { monitorId, createdAt: { gte: new Date(Date.now() - DAY_MS) } },
+      orderBy: { createdAt: 'asc' },
+      select: { status: true, coverageMs: true, createdAt: true },
+    });
+    this.writer.ring(monitorId).seed(
+      beats.map((b) => ({
+        at: b.createdAt.getTime(),
+        beatStatus: b.status as HeartbeatStatus,
+        coverageMs: b.coverageMs,
+      })),
+    );
+  }
+
+  private toSpec(monitor: MonitorRow, initialStatus: MonitorStatus): MonitorSpec {
     let config: unknown = {};
     try {
       config = JSON.parse(monitor.config);
@@ -67,7 +102,7 @@ export class MonitorEngineService implements OnApplicationBootstrap {
       retries: monitor.retries,
       retryIntervalMs: monitor.retryIntervalSeconds * 1000,
       timeoutMs: monitor.timeoutMs,
-      initialStatus: monitor.status as MonitorStatus,
+      initialStatus,
     };
   }
 }
