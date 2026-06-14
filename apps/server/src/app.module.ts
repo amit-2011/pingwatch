@@ -34,6 +34,9 @@ import { ChannelController } from './notifications/channel.controller';
 import { MonitorService } from './monitors/monitor.service';
 import { MonitorController } from './monitors/monitor.controller';
 import { RealtimeService } from './realtime/realtime.service';
+import { OrgController } from './orgs/org.controller';
+import { MemberService } from './members/member.service';
+import { MemberController } from './members/member.controller';
 
 export interface AppModuleDeps {
   secret: string;
@@ -69,6 +72,8 @@ export class AppModule {
         AuthController,
         ChannelController,
         MonitorController,
+        OrgController,
+        MemberController,
       ],
       providers: [
         { provide: APP_SECRET, useValue: deps.secret },
@@ -95,6 +100,7 @@ export class AppModule {
         ChannelService,
         MonitorService,
         RealtimeService,
+        MemberService,
         // Global first-run gate: 409 SETUP_REQUIRED until setup completes.
         { provide: APP_GUARD, useClass: SetupGuard },
       ],

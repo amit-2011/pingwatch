@@ -103,6 +103,19 @@ export class AuthService {
     if (rawRefresh) await this.refresh.revoke(rawRefresh);
   }
 
+  /** Change own password — verify current, rehash, and revoke all other sessions. */
+  async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<void> {
+    const user = await this.db.user.findUnique({ where: { id: userId } });
+    if (!user || !(await this.passwords.verify(currentPassword, user.passwordHash))) {
+      throw new DomainException('INVALID_CREDENTIALS', 'Current password is incorrect', 401);
+    }
+    await this.db.user.update({
+      where: { id: userId },
+      data: { passwordHash: await this.passwords.hash(newPassword) },
+    });
+    await this.refresh.revokeAllForUser(userId);
+  }
+
   private async startSession(user: AuthUser, ctx: RotationContext): Promise<AuthSession> {
     const accessToken = this.jwt.sign({ sub: user.id, email: user.email });
     const refresh = await this.refresh.issue(user.id, ctx);
