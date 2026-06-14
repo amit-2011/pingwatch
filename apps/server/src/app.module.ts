@@ -16,6 +16,8 @@ import { SetupController } from './auth/setup.controller';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { RolesGuard } from './auth/roles.guard';
 import { SetupGuard } from './auth/setup.guard';
+import { MonitorTypeRegistry } from './engine/monitor-type.registry';
+import { CheckRunnerService } from './engine/check-runner.service';
 
 export interface AppModuleDeps {
   secret: string;
@@ -55,6 +57,8 @@ export class AppModule {
         AuthService,
         JwtAuthGuard,
         RolesGuard,
+        MonitorTypeRegistry,
+        CheckRunnerService,
         // Global first-run gate: 409 SETUP_REQUIRED until setup completes.
         { provide: APP_GUARD, useClass: SetupGuard },
       ],
@@ -67,6 +71,8 @@ export class AppModule {
         TokenService,
         AuthJwtService,
         RefreshTokenService,
+        MonitorTypeRegistry,
+        CheckRunnerService,
       ],
     };
   }
