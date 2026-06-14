@@ -5,11 +5,12 @@ import { ArrowLeft, Pause, Pencil, Play, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { ApiError, type Heartbeat, type MonitorView, apiFetch, monitorTarget } from '@/lib/api';
 import { HeartbeatBar } from '@/components/heartbeat-bar';
 import { StatusBadge } from '@/components/status-badge';
 import { Button, Card } from '@/components/ui';
+import { cn } from '@/lib/utils';
 
 function uptimeLabel(v: number | null): string {
   return v === null ? '—' : `${v.toFixed(2)}%`;
@@ -20,17 +21,18 @@ export default function MonitorDetailPage() {
   const router = useRouter();
   const qc = useQueryClient();
   const [actionError, setActionError] = useState<string | null>(null);
+  const [range, setRange] = useState(60);
   const onActionError = (e: unknown) =>
     setActionError(e instanceof ApiError ? e.message : 'Action failed');
 
-  const { data: monitor } = useQuery({
+  const { data: monitor, isError } = useQuery({
     queryKey: ['monitor', id],
     queryFn: () => apiFetch<MonitorView>(`/monitors/${id}`),
     refetchInterval: 5_000,
   });
   const { data: beats } = useQuery({
-    queryKey: ['heartbeats', id],
-    queryFn: () => apiFetch<Heartbeat[]>(`/monitors/${id}/heartbeats?limit=60`),
+    queryKey: ['heartbeats', id, range],
+    queryFn: () => apiFetch<Heartbeat[]>(`/monitors/${id}/heartbeats?limit=${range}`),
     refetchInterval: 5_000,
   });
 
@@ -51,6 +53,7 @@ export default function MonitorDetailPage() {
     onError: onActionError,
   });
 
+  if (isError) return <div className="p-8 text-red-600">Monitor not found.</div>;
   if (!monitor) return <div className="p-8 text-slate-500">Loading…</div>;
 
   const chartData = (beats ?? [])
@@ -118,15 +121,43 @@ export default function MonitorDetailPage() {
       </Card>
 
       <Card className="p-5">
-        <div className="mb-3 text-sm font-medium">Response time (ms)</div>
+        <div className="mb-3 flex items-center justify-between">
+          <div className="text-sm font-medium">Response time (ms)</div>
+          <div className="flex gap-1">
+            {[60, 200].map((r) => (
+              <button
+                key={r}
+                onClick={() => setRange(r)}
+                className={cn(
+                  'rounded px-2 py-1 text-xs font-medium',
+                  range === r
+                    ? 'bg-slate-200 text-slate-900 dark:bg-slate-700 dark:text-slate-50'
+                    : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800',
+                )}
+              >
+                Last {r}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="h-48">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData}>
+            <AreaChart data={chartData}>
+              <defs>
+                <linearGradient id="rt" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#10b981" stopOpacity={0.4} />
+                  <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
+                </linearGradient>
+              </defs>
               <XAxis dataKey="i" hide />
-              <YAxis width={44} tick={{ fontSize: 11 }} />
-              <Tooltip />
-              <Line type="monotone" dataKey="ms" stroke="#10b981" dot={false} strokeWidth={2} isAnimationActive={false} />
-            </LineChart>
+              <YAxis width={44} tick={{ fontSize: 11 }} unit=" ms" />
+              <Tooltip
+                contentStyle={{ fontSize: 12, borderRadius: 8 }}
+                formatter={(value) => [`${String(value)} ms`, 'Response']}
+                labelFormatter={() => ''}
+              />
+              <Area type="monotone" dataKey="ms" stroke="#10b981" strokeWidth={2} fill="url(#rt)" isAnimationActive={false} />
+            </AreaChart>
           </ResponsiveContainer>
         </div>
       </Card>
