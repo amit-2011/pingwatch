@@ -29,6 +29,8 @@ interface MonitorRecord {
 export interface MonitorView extends Omit<MonitorRecord, 'config' | 'status'> {
   status: MonitorStatus;
   config: unknown;
+  notifyChannelIds?: string[];
+  resendEveryMin?: number | null;
 }
 
 @Injectable()
@@ -48,7 +50,15 @@ export class MonitorService {
 
   async get(organizationId: string, id: string): Promise<MonitorView> {
     const monitor = await this.requireMonitor(organizationId, id);
-    return this.toView(monitor);
+    const links = await this.db.monitorNotification.findMany({
+      where: { monitorId: id },
+      select: { channelId: true, resendEveryMin: true },
+    });
+    return {
+      ...this.toView(monitor),
+      notifyChannelIds: links.map((l) => l.channelId),
+      resendEveryMin: links[0]?.resendEveryMin ?? null,
+    };
   }
 
   async create(organizationId: string, input: CreateMonitorInput): Promise<MonitorView> {
@@ -73,6 +83,7 @@ export class MonitorService {
         status: 'pending',
       },
     });
+    await this.syncChannels(monitor.id, organizationId, input.notifyChannelIds, input.resendEveryMin ?? null);
     await this.engine.start(monitor.id);
     return this.toView(monitor);
   }
@@ -89,8 +100,32 @@ export class MonitorService {
     if (input.config !== undefined) data.config = JSON.stringify(input.config);
 
     const monitor = await this.db.monitor.update({ where: { id }, data });
+    if (input.notifyChannelIds !== undefined) {
+      await this.syncChannels(id, organizationId, input.notifyChannelIds, input.resendEveryMin ?? null);
+    }
     await this.engine.restart(monitor.id);
     return this.toView(monitor);
+  }
+
+  /** Replace the monitor's notification channel links (validated to the org). */
+  private async syncChannels(
+    monitorId: string,
+    organizationId: string,
+    channelIds: string[],
+    resendEveryMin: number | null,
+  ): Promise<void> {
+    const valid = await this.db.notificationChannel.findMany({
+      where: { id: { in: channelIds }, organizationId },
+      select: { id: true },
+    });
+    await this.db.$transaction([
+      this.db.monitorNotification.deleteMany({ where: { monitorId } }),
+      ...valid.map((c) =>
+        this.db.monitorNotification.create({
+          data: { monitorId, channelId: c.id, notifyOn: 'down,up,repeat', resendEveryMin },
+        }),
+      ),
+    ]);
   }
 
   async setActive(organizationId: string, id: string, isActive: boolean): Promise<MonitorView> {

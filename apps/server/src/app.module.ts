@@ -29,6 +29,7 @@ import { NotificationProviderRegistry } from './notifications/notification-provi
 import { IncidentService } from './notifications/incident.service';
 import { DispatchService } from './notifications/dispatch.service';
 import { IncidentListener } from './notifications/incident.listener';
+import { RepeatNotifyService } from './notifications/repeat-notify.service';
 import { ChannelService } from './notifications/channel.service';
 import { ChannelController } from './notifications/channel.controller';
 import { MonitorService } from './monitors/monitor.service';
@@ -97,6 +98,7 @@ export class AppModule {
         IncidentService,
         DispatchService,
         IncidentListener,
+        RepeatNotifyService,
         ChannelService,
         MonitorService,
         RealtimeService,

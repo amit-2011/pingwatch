@@ -49,5 +49,13 @@ export class IncidentListener {
     };
 
     await this.dispatch.dispatchToMonitor(monitor.id, transition.to, event);
+
+    // Record the notification time so the repeat-notify cron knows when to re-alert (P2.6).
+    if (transition.to === 'down' && incident) {
+      await this.db.incident.update({
+        where: { id: incident.id },
+        data: { lastNotifiedAt: new Date(transition.at), notifyCount: { increment: 1 } },
+      });
+    }
   }
 }

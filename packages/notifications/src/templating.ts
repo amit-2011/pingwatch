@@ -9,6 +9,11 @@ export function renderNotification(event: NotificationEvent): NotificationRender
         title: `✅ ${event.monitor.name} is UP`,
         body: `${event.monitor.name}${target} has recovered.`,
       };
+    case 'repeat':
+      return {
+        title: `🔴 ${event.monitor.name} is STILL DOWN`,
+        body: `${event.monitor.name}${target} is still down: ${event.message}`,
+      };
     case 'test':
       return {
         title: '🔔 PingWatch test',
