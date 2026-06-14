@@ -15,6 +15,7 @@ export default tseslint.config(
       '**/node_modules/**',
       '**/generated-sqlite/**',
       '**/generated-postgres/**',
+      '**/next-env.d.ts',
     ],
   },
   js.configs.recommended,
