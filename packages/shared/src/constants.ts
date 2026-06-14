@@ -40,6 +40,18 @@ export type ChannelType = (typeof CHANNEL_TYPES)[number];
 export const TOKEN_TYPES = ['agent', 'api'] as const;
 export type TokenType = (typeof TOKEN_TYPES)[number];
 
+/** Scopes a programmatic API token may hold (P4.6). `admin` implies `write` implies `read`. */
+export const TOKEN_SCOPES = ['read', 'write', 'admin'] as const;
+export type TokenScope = (typeof TOKEN_SCOPES)[number];
+
+const SCOPE_RANK: Record<TokenScope, number> = { read: 0, write: 1, admin: 2 };
+
+/** True if any held scope satisfies `required` (admin ⇒ write ⇒ read). */
+export function scopeMeets(have: readonly string[], required: TokenScope): boolean {
+  const needed = SCOPE_RANK[required];
+  return have.some((s) => s in SCOPE_RANK && SCOPE_RANK[s as TokenScope] >= needed);
+}
+
 export const INCIDENT_STATUS = ['open', 'acknowledged', 'resolved'] as const;
 export type IncidentStatus = (typeof INCIDENT_STATUS)[number];
 
