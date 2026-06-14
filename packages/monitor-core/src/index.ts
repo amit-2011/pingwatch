@@ -1,7 +1,11 @@
 /**
- * @pingwatch/monitor-core — `MonitorType` implementations (HTTP first; TCP/Ping/DNS/SSL/keyword
- * later) behind the plugin interface from @pingwatch/shared.
- *
- * Real contents arrive in T8. Placeholder keeps the package buildable.
+ * @pingwatch/monitor-core — `MonitorType` implementations behind the plugin interface from
+ * @pingwatch/shared. MVP ships `http`; TCP/Ping/DNS/SSL/keyword append here in Phase 2.
  */
-export const MONITOR_CORE_PACKAGE = '@pingwatch/monitor-core' as const;
+import type { MonitorType } from '@pingwatch/shared';
+import { httpMonitorType } from './http.monitor';
+
+export { httpMonitorType } from './http.monitor';
+
+/** Every monitor type bundled in this build. The engine registry loads these at startup. */
+export const builtinMonitorTypes: MonitorType[] = [httpMonitorType];
