@@ -1,15 +1,16 @@
 @import 'tailwindcss';
 
+/* Tailwind v4 defaults `dark:` to prefers-color-scheme; drive it off the next-themes `.dark` class instead. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: #ffffff;
   --foreground: #0a0a0a;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #020617;
-    --foreground: #f8fafc;
-  }
+.dark {
+  --background: #020617;
+  --foreground: #f8fafc;
 }
 
 body {

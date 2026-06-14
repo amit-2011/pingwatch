@@ -4,8 +4,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Pause, Pencil, Play, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { type Heartbeat, type MonitorView, apiFetch } from '@/lib/api';
+import { ApiError, type Heartbeat, type MonitorView, apiFetch } from '@/lib/api';
 import { HeartbeatBar } from '@/components/heartbeat-bar';
 import { StatusBadge } from '@/components/status-badge';
 import { Button, Card } from '@/components/ui';
@@ -18,6 +19,9 @@ export default function MonitorDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const qc = useQueryClient();
+  const [actionError, setActionError] = useState<string | null>(null);
+  const onActionError = (e: unknown) =>
+    setActionError(e instanceof ApiError ? e.message : 'Action failed');
 
   const { data: monitor } = useQuery({
     queryKey: ['monitor', id],
@@ -32,7 +36,11 @@ export default function MonitorDetailPage() {
 
   const toggle = useMutation({
     mutationFn: () => apiFetch(`/monitors/${id}/${monitor?.isActive ? 'pause' : 'resume'}`, { method: 'POST' }),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['monitor', id] }),
+    onSuccess: () => {
+      setActionError(null);
+      void qc.invalidateQueries({ queryKey: ['monitor', id] });
+    },
+    onError: onActionError,
   });
   const remove = useMutation({
     mutationFn: () => apiFetch(`/monitors/${id}`, { method: 'DELETE' }),
@@ -40,6 +48,7 @@ export default function MonitorDetailPage() {
       void qc.invalidateQueries({ queryKey: ['monitors'] });
       router.push('/monitors');
     },
+    onError: onActionError,
   });
 
   if (!monitor) return <div className="p-8 text-slate-500">Loading…</div>;
@@ -78,14 +87,17 @@ export default function MonitorDetailPage() {
           <Button
             variant="danger"
             size="sm"
+            aria-label="Delete monitor"
             onClick={() => {
               if (window.confirm('Delete this monitor?')) remove.mutate();
             }}
           >
-            <Trash2 className="h-4 w-4" />
+            <Trash2 className="h-4 w-4" aria-hidden />
           </Button>
         </div>
       </div>
+
+      {actionError && <p className="mb-4 text-sm text-red-600">{actionError}</p>}
 
       <div className="mb-6 grid grid-cols-3 gap-4">
         {([['24h', monitor.uptime24h], ['7 days', monitor.uptime7d], ['30 days', monitor.uptime30d]] as const).map(
