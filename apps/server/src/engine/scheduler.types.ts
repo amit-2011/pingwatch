@@ -23,7 +23,11 @@ export interface MonitorBeatEvent {
   status: MonitorStatus;
   beatStatus: HeartbeatStatus;
   important: boolean;
+  /** Status changed from the previous beat (drives the denormalized Monitor.status write). */
+  changed: boolean;
   failCount: number;
+  /** Interval (ms) this beat covers until the next one — duration weight for uptime. */
+  coverageMs: number;
   at: number;
 }
 
