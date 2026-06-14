@@ -11,14 +11,30 @@
       "default": "./dist/index.js"
     }
   },
-  "files": ["dist", "prisma"],
+  "files": [
+    "dist",
+    "prisma"
+  ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "type-check": "tsc -p tsconfig.json --noEmit",
+    "generate": "prisma generate --schema prisma/sqlite/schema.prisma && prisma generate --schema prisma/postgres/schema.prisma",
+    "build": "pnpm run generate && tsc -p tsconfig.json",
+    "type-check": "pnpm run generate && tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
-    "clean": "rm -rf dist *.tsbuildinfo"
+    "migrate:diff:sqlite": "prisma migrate diff --from-empty --to-schema prisma/sqlite/schema.prisma --script",
+    "migrate:diff:postgres": "prisma migrate diff --from-empty --to-schema prisma/postgres/schema.prisma --script",
+    "clean": "rm -rf dist *.tsbuildinfo src/generated-sqlite src/generated-postgres"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/pg": "^8.15.6",
     "typescript": "^5.7.2"
+  },
+  "dependencies": {
+    "@prisma/adapter-better-sqlite3": "^7.8.0",
+    "@prisma/adapter-pg": "^7.8.0",
+    "@prisma/client": "^7.8.0",
+    "better-sqlite3": "^12.10.1",
+    "pg": "^8.21.0",
+    "prisma": "^7.8.0"
   }
 }
