@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  guards:
+    name: Repo guards
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Single .git (no nested repos)
+        run: |
+          nested=$(find . -mindepth 2 -name .git -not -path './node_modules/*' || true)
+          if [ -n "$nested" ]; then
+            echo "::error::Nested .git found:"; echo "$nested"; exit 1
+          fi
+          echo "OK: exactly one .git at root"
+
+      - name: No Prisma enum / native Json (SQLite ⇄ Postgres parity)
+        run: |
+          hits=$(grep -rEn '(^|[[:space:]])enum[[:space:]]|[[:space:]]Json([[:space:]]|\?|\[|$)' \
+            --include=schema.prisma . || true)
+          if [ -n "$hits" ]; then
+            echo "::error::schema.prisma must not use 'enum' or native 'Json' (use String + shared unions):"
+            echo "$hits"; exit 1
+          fi
+          echo "OK: no banned tokens in any schema.prisma"
+
+  build:
+    name: Lint · Type-check · Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm type-check
+      - run: pnpm build
