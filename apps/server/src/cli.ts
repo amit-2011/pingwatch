@@ -3,6 +3,7 @@
  * `pingwatch` CLI (the published bin). Commands: `start` (default) and `migrate`.
  * Flags: --port, --data-dir, --config. Config precedence is resolved in config/resolve.
  */
+import 'reflect-metadata'; // must load before any NestJS decorator is evaluated
 import { cac } from 'cac';
 import type { Command } from 'cac';
 import { runMigrate, startPingWatch } from './main';
