@@ -31,6 +31,65 @@ export const emailChannelConfigSchema = z.object({
 });
 export type EmailChannelConfig = z.infer<typeof emailChannelConfigSchema>;
 
+// ───────────────────── P4.4 providers ─────────────────────
+// Each schema describes the PLAINTEXT shape a provider receives; secret fields (tokens, keys,
+// passwords) are SecretBox-sealed whole at rest, exactly like the telegram/slack/email configs.
+
+/** Discord incoming webhook. `webhookUrl` carries the secret token; username/avatar are cosmetic. */
+export const discordChannelConfigSchema = z.object({
+  webhookUrl: z.string().url().max(2048),
+  username: z.string().max(80).optional(),
+  avatarUrl: z.string().url().max(2048).optional(),
+});
+export type DiscordChannelConfig = z.infer<typeof discordChannelConfigSchema>;
+
+/** Generic JSON webhook to any HTTP endpoint. `headers` can carry an auth secret. */
+export const webhookChannelConfigSchema = z.object({
+  url: z.string().url().max(2048),
+  method: z.enum(['POST', 'PUT', 'PATCH']).default('POST'),
+  headers: z.record(z.string().max(2048)).optional(),
+});
+export type WebhookChannelConfig = z.infer<typeof webhookChannelConfigSchema>;
+
+/** Microsoft Teams incoming webhook (legacy MessageCard connector — broadest compatibility). */
+export const msteamsChannelConfigSchema = z.object({
+  webhookUrl: z.string().url().max(2048),
+});
+export type MsTeamsChannelConfig = z.infer<typeof msteamsChannelConfigSchema>;
+
+/** Pushover. `appToken` + `userKey` are secrets. */
+export const pushoverChannelConfigSchema = z.object({
+  appToken: z.string().min(1).max(255),
+  userKey: z.string().min(1).max(255),
+  priority: z.number().int().min(-2).max(2).optional(),
+});
+export type PushoverChannelConfig = z.infer<typeof pushoverChannelConfigSchema>;
+
+/** Self-hosted Gotify server. `appToken` is the application token (secret). */
+export const gotifyChannelConfigSchema = z.object({
+  serverUrl: z.string().url().max(2048),
+  appToken: z.string().min(1).max(255),
+  priority: z.number().int().min(0).max(10).default(5),
+});
+export type GotifyChannelConfig = z.infer<typeof gotifyChannelConfigSchema>;
+
+/** Twilio SMS. `accountSid` + `authToken` are secrets; `from`/`to` are E.164 phone numbers. */
+export const twilioChannelConfigSchema = z.object({
+  accountSid: z.string().min(1).max(255),
+  authToken: z.string().min(1).max(255),
+  from: z.string().min(1).max(32),
+  to: z.string().min(1).max(32),
+});
+export type TwilioChannelConfig = z.infer<typeof twilioChannelConfigSchema>;
+
+/** WhatsApp Cloud API. `accessToken` is a secret; `phoneNumberId` is the sender, `to` the recipient. */
+export const whatsappChannelConfigSchema = z.object({
+  phoneNumberId: z.string().min(1).max(64),
+  accessToken: z.string().min(1).max(4096),
+  to: z.string().min(1).max(32),
+});
+export type WhatsAppChannelConfig = z.infer<typeof whatsappChannelConfigSchema>;
+
 /**
  * Generic create-channel DTO. `config` is provider-specific and is re-validated by the chosen
  * provider's own `configSchema` (see `NotificationProvider` in ./plugins) — this outer schema
