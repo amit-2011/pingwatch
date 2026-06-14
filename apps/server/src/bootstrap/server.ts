@@ -13,9 +13,13 @@ import { createRequire } from 'node:module';
 import { NestFactory } from '@nestjs/core';
 import { ExpressAdapter } from '@nestjs/platform-express';
 import express from 'express';
+import helmet from 'helmet';
 import next from 'next';
+import { Logger } from 'nestjs-pino';
 import type { PingWatchPrismaClient } from '@pingwatch/db';
 import { AppModule } from '../app.module';
+import { AllExceptionsFilter } from '../common/all-exceptions.filter';
+import type { ResolvedConfig } from '../config/schema';
 
 export interface ServerHandle {
   close(): Promise<void>;
@@ -24,6 +28,8 @@ export interface ServerHandle {
 export interface StartServerOptions {
   port: number;
   db: PingWatchPrismaClient;
+  secret: string;
+  config: ResolvedConfig;
   /** Next dev mode (HMR). Default false — production embed serves the prebuilt `.next`. */
   dev?: boolean;
 }
@@ -46,7 +52,8 @@ export async function startServer(options: StartServerOptions): Promise<ServerHa
   await nextApp.prepare();
 
   const expressApp = express();
-  // (1) body parsers FIRST, scoped to /api only.
+  // (1) security headers + body parsers FIRST, scoped to /api only (Next manages its own).
+  expressApp.use('/api', helmet());
   expressApp.use('/api', express.json());
   expressApp.use('/api', express.urlencoded({ extended: true }));
 
@@ -62,10 +69,13 @@ export async function startServer(options: StartServerOptions): Promise<ServerHa
 
   // (3) Nest under the `api` global prefix (its own body parsing disabled) — registered LAST so it
   // only ever sees /api requests that fell through the Next router above.
-  const nestApp = await NestFactory.create(AppModule, new ExpressAdapter(expressApp), {
-    bodyParser: false,
-    logger: ['error', 'warn', 'log'],
-  });
+  const nestApp = await NestFactory.create(
+    AppModule.register({ secret: options.secret, db: options.db, config: options.config }),
+    new ExpressAdapter(expressApp),
+    { bodyParser: false, bufferLogs: true },
+  );
+  nestApp.useLogger(nestApp.get(Logger));
+  nestApp.useGlobalFilters(new AllExceptionsFilter());
   nestApp.setGlobalPrefix('api');
   await nestApp.init();
 

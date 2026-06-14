@@ -13,13 +13,13 @@ import { startServer } from './bootstrap/server';
 export async function startPingWatch(flags: CliFlags = {}): Promise<void> {
   const config = resolveConfig(flags);
   ensureDataDir(config.dataDir);
-  ensureSecret(config.dataDir);
+  const secret = ensureSecret(config.dataDir);
 
   console.log(`[pingwatch] data dir : ${config.dataDir}`);
   console.log(`[pingwatch] database : ${config.databaseUrl}`);
 
   const db = await initDatabase(config.databaseUrl);
-  const server = await startServer({ port: config.port, db });
+  const server = await startServer({ port: config.port, db, secret, config });
 
   console.log(`[pingwatch] running  → http://localhost:${config.port}`);
 
