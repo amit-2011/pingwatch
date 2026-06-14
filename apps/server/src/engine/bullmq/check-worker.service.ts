@@ -60,13 +60,16 @@ export class CheckWorkerService implements OnApplicationBootstrap, OnModuleDestr
     const result = await this.runner.run(spec.type, spec.config, spec.timeoutMs);
 
     const decision = await this.store.withLock(monitorId, async () => {
+      // The check can run up to timeoutMs; if the monitor was stopped/removed in that window the spec
+      // is gone — produce no beat and don't re-create runtime state for a paused monitor (review fix).
+      if ((await this.redis.exists(specKey(monitorId))) === 0) return null;
       const state = (await this.store.getState(monitorId)) ?? { status: spec.initialStatus, failCount: 0 };
       const runtime = new MonitorRuntime(state.status, state.failCount);
       const d = runtime.applyResult(result.status === 'up', spec.retries);
       await this.store.setState(monitorId, runtime.getState());
       return d;
     });
-    if (!decision) return; // couldn't take the lock — another worker is handling this monitor
+    if (!decision) return; // lock contention, or the monitor was stopped during the check
 
     const at = Date.now();
     const beat: MonitorBeatEvent = {

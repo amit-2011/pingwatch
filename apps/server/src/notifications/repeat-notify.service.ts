@@ -62,12 +62,20 @@ export class RepeatNotifyService {
       );
       if (due.length === 0) continue;
 
-      const event = this.buildEvent(incident);
-      for (const link of due) await this.dispatch.deliver(link.channel, event);
-      await this.db.incident.update({
-        where: { id: incident.id },
+      // Atomically claim this re-notify window before dispatching — guards against a transient
+      // dual-leader double-page (the claim only succeeds if lastNotifiedAt is still what we read).
+      const claimed = await this.db.incident.updateMany({
+        where: {
+          id: incident.id,
+          status: { not: 'resolved' },
+          lastNotifiedAt: incident.lastNotifiedAt,
+        },
         data: { lastNotifiedAt: new Date(now), notifyCount: { increment: 1 } },
       });
+      if (claimed.count === 0) continue;
+
+      const event = this.buildEvent(incident);
+      for (const link of due) await this.dispatch.deliver(link.channel, event);
     }
 
     // P4.3: page the next escalation step for any incident that has gone too long unacknowledged.

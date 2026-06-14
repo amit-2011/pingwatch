@@ -1,7 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import type { PingWatchPrismaClient, Prisma } from '@pingwatch/db';
-import { PRISMA_CLIENT } from '../common/di-tokens';
+import { PINGWATCH_CONFIG, PRISMA_CLIENT } from '../common/di-tokens';
+import type { ResolvedConfig } from '../config/schema';
 import { MONITOR_BEAT_EVENT, type MonitorBeatEvent } from './scheduler.types';
 import { UptimeRing } from './uptime-ring';
 
@@ -16,7 +17,10 @@ export class HeartbeatWriterService {
   private readonly rings = new Map<string, UptimeRing>();
   private tail: Promise<unknown> = Promise.resolve();
 
-  constructor(@Inject(PRISMA_CLIENT) private readonly db: PingWatchPrismaClient) {}
+  constructor(
+    @Inject(PRISMA_CLIENT) private readonly db: PingWatchPrismaClient,
+    @Inject(PINGWATCH_CONFIG) private readonly config: ResolvedConfig,
+  ) {}
 
   ring(monitorId: string): UptimeRing {
     let ring = this.rings.get(monitorId);
@@ -33,8 +37,11 @@ export class HeartbeatWriterService {
   }
 
   private async persist(beat: MonitorBeatEvent): Promise<void> {
+    // In bullmq mode this instance only runs a fraction of a monitor's beats, so its ring is a
+    // partial sample — uptime24h is recomputed cluster-wide by the rollup instead (P4.2 review fix).
+    const clusterMode = this.config.scheduler === 'bullmq';
     const ring = this.ring(beat.monitorId);
-    ring.push(beat.at, beat.beatStatus, beat.coverageMs);
+    if (!clusterMode) ring.push(beat.at, beat.beatStatus, beat.coverageMs);
 
     await this.db.heartbeat.create({
       data: {
@@ -52,7 +59,7 @@ export class HeartbeatWriterService {
     const data: Prisma.MonitorUpdateInput = {
       lastCheckedAt: new Date(beat.at),
       lastResponseTime: beat.result.responseTimeMs,
-      uptime24h: ring.uptimePct(beat.at),
+      ...(clusterMode ? {} : { uptime24h: ring.uptimePct(beat.at) }),
     };
     if (beat.changed) {
       data.status = beat.status;

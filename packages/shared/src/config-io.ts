@@ -62,16 +62,41 @@ export const configMaintenanceSchema = z.object({
   endsAt: z.string(),
 });
 
-export const configBundleSchema = z.object({
-  version: z.literal(CONFIG_BUNDLE_VERSION),
-  exportedAt: z.string().optional(),
-  org: z.object({ name: z.string(), slug: z.string() }).optional(),
-  projects: z.array(configProjectSchema).default([]),
-  channels: z.array(configChannelSchema).default([]),
-  monitors: z.array(configMonitorSchema).default([]),
-  statusPages: z.array(configStatusPageSchema).default([]),
-  maintenanceWindows: z.array(configMaintenanceSchema).default([]),
-});
+function firstDuplicate(keys: string[]): string | undefined {
+  const seen = new Set<string>();
+  for (const k of keys) {
+    if (seen.has(k)) return k;
+    seen.add(k);
+  }
+  return undefined;
+}
+
+export const configBundleSchema = z
+  .object({
+    version: z.literal(CONFIG_BUNDLE_VERSION),
+    exportedAt: z.string().optional(),
+    org: z.object({ name: z.string(), slug: z.string() }).optional(),
+    projects: z.array(configProjectSchema).default([]),
+    channels: z.array(configChannelSchema).default([]),
+    monitors: z.array(configMonitorSchema).default([]),
+    statusPages: z.array(configStatusPageSchema).default([]),
+    maintenanceWindows: z.array(configMaintenanceSchema).default([]),
+  })
+  // Import upserts by these keys; duplicates within a bundle make the apply ambiguous (which row
+  // wins?) and could silently overwrite, so reject them up front (review fix).
+  .superRefine((b, ctx) => {
+    const checks: Array<[string[], string]> = [
+      [b.projects.map((p) => p.slug), 'projects'],
+      [b.channels.map((c) => c.name), 'channels'],
+      [b.monitors.map((m) => `${m.projectSlug}/${m.name}`), 'monitors'],
+      [b.statusPages.map((s) => s.title), 'statusPages'],
+      [b.maintenanceWindows.map((w) => w.title), 'maintenanceWindows'],
+    ];
+    for (const [keys, path] of checks) {
+      const dup = firstDuplicate(keys);
+      if (dup) ctx.addIssue({ code: z.ZodIssueCode.custom, path: [path], message: `duplicate key "${dup}"` });
+    }
+  });
 export type ConfigBundle = z.infer<typeof configBundleSchema>;
 
 export const importConfigSchema = z.object({

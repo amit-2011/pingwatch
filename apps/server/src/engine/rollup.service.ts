@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { HEARTBEAT_STATUS } from '@pingwatch/shared';
-import type { PingWatchPrismaClient } from '@pingwatch/db';
+import type { PingWatchPrismaClient, Prisma } from '@pingwatch/db';
 import { PINGWATCH_CONFIG, PRISMA_CLIENT } from '../common/di-tokens';
 import type { ResolvedConfig } from '../config/schema';
 import { LeaderElectionService } from './bullmq/leader-election.service';
@@ -152,7 +152,11 @@ export class RollupService {
 
   private async updateUptimeWindows(monitorId: string): Promise<void> {
     const now = Date.now();
-    const [hourly, daily] = await Promise.all([
+    // In bullmq mode the per-instance UptimeRing only sees a fraction of a monitor's beats, so
+    // uptime24h must be recomputed cluster-wide from the rollups here (P4.2 review fix). In the
+    // default in-process mode the HeartbeatWriter's real-time ring stays the source of uptime24h.
+    const clusterUptime24h = this.config.scheduler === 'bullmq';
+    const [hourly, daily, last24h] = await Promise.all([
       this.db.statHourly.aggregate({
         where: { monitorId, bucket: { gte: new Date(now - 7 * DAY_MS) } },
         _sum: { upMs: true, downMs: true },
@@ -161,14 +165,19 @@ export class RollupService {
         where: { monitorId, bucket: { gte: new Date(now - 30 * DAY_MS) } },
         _sum: { upMs: true, downMs: true },
       }),
+      clusterUptime24h
+        ? this.db.statHourly.aggregate({
+            where: { monitorId, bucket: { gte: new Date(now - DAY_MS) } },
+            _sum: { upMs: true, downMs: true },
+          })
+        : Promise.resolve(null),
     ]);
-    await this.db.monitor.update({
-      where: { id: monitorId },
-      data: {
-        uptime7d: pct(hourly._sum.upMs, hourly._sum.downMs),
-        uptime30d: pct(daily._sum.upMs, daily._sum.downMs),
-      },
-    });
+    const data: Prisma.MonitorUpdateInput = {
+      uptime7d: pct(hourly._sum.upMs, hourly._sum.downMs),
+      uptime30d: pct(daily._sum.upMs, daily._sum.downMs),
+    };
+    if (last24h) data.uptime24h = pct(last24h._sum.upMs, last24h._sum.downMs);
+    await this.db.monitor.update({ where: { id: monitorId }, data });
   }
 
   private async purge(monitorId: string): Promise<void> {

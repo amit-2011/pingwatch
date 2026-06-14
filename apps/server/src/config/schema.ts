@@ -15,6 +15,8 @@ export const DEFAULT_DATA_DIR = path.join(os.homedir(), '.pingwatch');
 const authConfigSchema = z
   .object({
     mode: z.enum(SSO_MODES).default('local'),
+    /** Keep local password login available even in an SSO mode (default true — avoids admin lockout). */
+    allowLocalFallback: z.boolean().default(true),
     autoProvision: z.boolean().default(true),
     defaultRole: z.enum(USER_ROLES).default('viewer'),
     groupRoleMap: z.record(z.enum(USER_ROLES)).default({}),

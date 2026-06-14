@@ -30,7 +30,11 @@ export class JwtAuthGuard implements CanActivate {
       if (this.frontend?.mode === 'trusted-header' && this.externalIdentity) {
         const identity = await this.frontend.tryResolve(req);
         if (identity) {
-          req.user = await this.externalIdentity.provisionUser(identity);
+          const requestedOrg = req.headers['x-pingwatch-org'];
+          req.user = await this.externalIdentity.provisionUser(
+            identity,
+            typeof requestedOrg === 'string' ? requestedOrg : undefined,
+          );
           return true;
         }
       }

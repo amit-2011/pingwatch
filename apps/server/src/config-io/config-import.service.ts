@@ -64,7 +64,12 @@ export class ConfigImportService {
     };
 
     try {
-      await this.db.$transaction(run as Parameters<PingWatchPrismaClient['$transaction']>[0]);
+      // A large bundle does many sequential writes; raise the interactive-transaction limits well
+      // above Prisma's 5s default so a real import isn't aborted mid-apply (review fix).
+      await this.db.$transaction(run as Parameters<PingWatchPrismaClient['$transaction']>[0], {
+        timeout: 120_000,
+        maxWait: 10_000,
+      });
     } catch (err) {
       if (!(err instanceof DryRunRollback)) throw err;
     }

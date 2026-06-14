@@ -31,6 +31,7 @@ function fromEnv(): Record<string, unknown> {
   const auth: Record<string, unknown> = {};
   const e = process.env;
   if (e.PINGWATCH_AUTH_MODE) auth.mode = e.PINGWATCH_AUTH_MODE;
+  if (e.PINGWATCH_AUTH_ALLOW_LOCAL_FALLBACK) auth.allowLocalFallback = e.PINGWATCH_AUTH_ALLOW_LOCAL_FALLBACK !== 'false';
   if (e.PINGWATCH_AUTH_DEFAULT_ROLE) auth.defaultRole = e.PINGWATCH_AUTH_DEFAULT_ROLE;
   if (e.PINGWATCH_TRUSTED_PROXY_CIDRS)
     auth.trustedProxyCidrs = e.PINGWATCH_TRUSTED_PROXY_CIDRS.split(',').map((s) => s.trim()).filter(Boolean);

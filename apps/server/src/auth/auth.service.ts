@@ -1,7 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { PingWatchPrismaClient } from '@pingwatch/db';
 import type { AuthUser, LoginInput, SetupInput, UserRole } from '@pingwatch/shared';
-import { PRISMA_CLIENT } from '../common/di-tokens';
+import { PINGWATCH_CONFIG, PRISMA_CLIENT } from '../common/di-tokens';
+import type { ResolvedConfig } from '../config/schema';
 import { DomainException } from '../common/domain.exception';
 import { slugify } from '../common/slug';
 import { PasswordService } from '../crypto/password.service';
@@ -18,6 +19,7 @@ export interface AuthSession {
 export class AuthService {
   constructor(
     @Inject(PRISMA_CLIENT) private readonly db: PingWatchPrismaClient,
+    @Inject(PINGWATCH_CONFIG) private readonly config: ResolvedConfig,
     private readonly passwords: PasswordService,
     private readonly jwt: AuthJwtService,
     private readonly refresh: RefreshTokenService,
@@ -58,6 +60,10 @@ export class AuthService {
   }
 
   async login(input: LoginInput, ctx: RotationContext): Promise<AuthSession> {
+    // In an SSO mode, local password login is a bypass unless the operator opted to keep it (P4.5).
+    if (this.config.auth.mode !== 'local' && !this.config.auth.allowLocalFallback) {
+      throw new DomainException('FORBIDDEN', 'Local password login is disabled — use SSO', 403);
+    }
     const user = await this.db.user.findUnique({ where: { email: input.email.toLowerCase() } });
     // NOTE (P2 hardening): add a constant-time dummy verify on the not-found path to fully kill
     // user-enumeration via timing. MVP returns a generic INVALID_CREDENTIALS for both paths.
