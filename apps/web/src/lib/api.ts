@@ -7,6 +7,11 @@ export type {
   MonitorStatus,
   StatusPageAdminView,
   PublicStatusPage,
+  PublicIncident,
+  IncidentView,
+  IncidentUpdateView,
+  IncidentStatus,
+  IncidentSeverity,
 } from '@pingwatch/shared';
 
 export class ApiError extends Error {
