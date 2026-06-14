@@ -60,6 +60,35 @@ export interface Project {
   slug: string;
 }
 
+export interface Org {
+  id: string;
+  name: string;
+  slug: string;
+  role: string;
+  current: boolean;
+}
+
+export interface Member {
+  userId: string;
+  email: string;
+  name: string | null;
+  role: string;
+  isSelf: boolean;
+}
+
+let currentOrgId: string | null =
+  typeof window !== 'undefined' ? window.localStorage.getItem('pw_org') : null;
+export function setCurrentOrg(id: string | null): void {
+  currentOrgId = id;
+  if (typeof window !== 'undefined') {
+    if (id) window.localStorage.setItem('pw_org', id);
+    else window.localStorage.removeItem('pw_org');
+  }
+}
+export function getCurrentOrg(): string | null {
+  return currentOrgId;
+}
+
 /** A readable target string for any monitor type (for list/detail display). */
 export function monitorTarget(m: MonitorView): string {
   const c = m.config;
@@ -87,6 +116,7 @@ export function getAccessToken(): string | null {
 function rawFetch(path: string, opts: RequestInit = {}): Promise<Response> {
   const headers = new Headers(opts.headers);
   if (accessToken) headers.set('authorization', `Bearer ${accessToken}`);
+  if (currentOrgId) headers.set('x-pingwatch-org', currentOrgId);
   if (opts.body && !headers.has('content-type')) headers.set('content-type', 'application/json');
   return fetch(`/api${path}`, { ...opts, headers, credentials: 'include' });
 }

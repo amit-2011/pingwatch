@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Post, Req, Res, UseGuards } from '@nestjs/common';
 import type { Request, Response } from 'express';
-import { type LoginInput, loginSchema } from '@pingwatch/shared';
+import { type ChangePasswordInput, type LoginInput, changePasswordSchema, loginSchema } from '@pingwatch/shared';
 import { ZodValidationPipe } from '../common/zod-validation.pipe';
 import type { AuthenticatedUser } from './authenticated-user';
 import { AuthService } from './auth.service';
@@ -45,4 +45,15 @@ export class AuthController {
   me(@CurrentUser() user: AuthenticatedUser): AuthenticatedUser {
     return user;
   }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('change-password')
+  async changePassword(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body(new ZodValidationPipe(changePasswordSchema)) dto: ChangePasswordInput,
+  ) {
+    await this.auth.changePassword(user.id, dto.currentPassword, dto.newPassword);
+    return { ok: true };
+  }
 }
+

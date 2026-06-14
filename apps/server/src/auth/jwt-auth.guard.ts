@@ -31,9 +31,20 @@ export class JwtAuthGuard implements CanActivate {
       throw new DomainException('UNAUTHORIZED', 'Invalid or expired access token', 401);
     }
 
-    const membership = await this.db.membership.findFirst({
+    // Multi-tenant: the active org comes from the X-Pingwatch-Org header (verified against the
+    // user's memberships); falls back to the user's first org (stable order) for single-org clients.
+    const requestedOrg = req.headers['x-pingwatch-org'];
+    let membership =
+      typeof requestedOrg === 'string' && requestedOrg.length > 0
+        ? await this.db.membership.findUnique({
+            where: { userId_organizationId: { userId: sub, organizationId: requestedOrg } },
+            include: { user: true },
+          })
+        : null;
+    membership ??= await this.db.membership.findFirst({
       where: { userId: sub },
       include: { user: true },
+      orderBy: { createdAt: 'asc' },
     });
     if (!membership || !membership.user.isActive) {
       throw new DomainException('UNAUTHORIZED', 'Session is no longer valid', 401);
