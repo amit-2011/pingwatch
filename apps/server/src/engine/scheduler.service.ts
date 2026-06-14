@@ -2,6 +2,7 @@ import { Injectable, type OnModuleDestroy } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CheckRunnerService } from './check-runner.service';
 import { MonitorRuntime } from './monitor-runtime';
+import type { SchedulerDriver } from './scheduler.driver';
 import {
   MONITOR_BEAT_EVENT,
   MONITOR_TRANSITION_EVENT,
@@ -22,7 +23,7 @@ const FIRST_BEAT_JITTER_CAP_MS = 5_000;
  * or pause/resume) can't let a stale tick mutate the fresh runtime or clobber its timer.
  */
 @Injectable()
-export class SchedulerService implements OnModuleDestroy {
+export class SchedulerService implements OnModuleDestroy, SchedulerDriver {
   private readonly runtimes = new Map<string, MonitorRuntime>();
   private readonly timers = new Map<string, NodeJS.Timeout>();
   private readonly generations = new Map<string, number>();

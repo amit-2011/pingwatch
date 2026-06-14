@@ -25,6 +25,7 @@ function fromEnv(): Record<string, unknown> {
   if (process.env.PINGWATCH_DATA_DIR) out.dataDir = process.env.PINGWATCH_DATA_DIR;
   if (process.env.DATABASE_URL) out.databaseUrl = process.env.DATABASE_URL;
   if (process.env.PINGWATCH_SCHEDULER) out.scheduler = process.env.PINGWATCH_SCHEDULER;
+  if (process.env.REDIS_URL) out.redisUrl = process.env.REDIS_URL;
   const raw = numberEnv(process.env.PINGWATCH_RAW_RETENTION_DAYS);
   if (raw !== undefined) out.rawRetentionDays = raw;
   const hourly = numberEnv(process.env.PINGWATCH_HOURLY_RETENTION_DAYS);
@@ -52,5 +53,20 @@ export function resolveConfig(flags: CliFlags = {}): ResolvedConfig {
   const databaseUrl =
     parsed.databaseUrl ?? `file:${path.join(parsed.dataDir, 'pingwatch.db')}`;
 
-  return { ...parsed, databaseUrl };
+  // Graceful fallback (P4.2): the BullMQ scheduler needs a shared Redis AND a shared (Postgres) DB.
+  // If either is missing, downgrade to the in-process scheduler rather than crash — the zero-config
+  // SQLite default must always boot.
+  let scheduler = parsed.scheduler;
+  if (scheduler === 'bullmq') {
+    const isPostgres = databaseUrl.startsWith('postgres://') || databaseUrl.startsWith('postgresql://');
+    if (!parsed.redisUrl) {
+      console.warn('[pingwatch] PINGWATCH_SCHEDULER=bullmq but REDIS_URL is unset — using the in-process scheduler.');
+      scheduler = 'in-process';
+    } else if (!isPostgres) {
+      console.warn('[pingwatch] PINGWATCH_SCHEDULER=bullmq requires a Postgres DATABASE_URL — using the in-process scheduler.');
+      scheduler = 'in-process';
+    }
+  }
+
+  return { ...parsed, scheduler, databaseUrl };
 }

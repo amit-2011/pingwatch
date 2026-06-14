@@ -1,8 +1,9 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import type { MonitorTypeId, NotificationEvent } from '@pingwatch/shared';
 import type { PingWatchPrismaClient } from '@pingwatch/db';
 import { PRISMA_CLIENT } from '../common/di-tokens';
+import { LeaderElectionService } from '../engine/bullmq/leader-election.service';
 import { EscalationService } from '../escalation/escalation.service';
 import { MaintenanceService } from '../maintenance/maintenance.service';
 import { DispatchService } from './dispatch.service';
@@ -30,10 +31,13 @@ export class RepeatNotifyService {
     private readonly dispatch: DispatchService,
     private readonly maintenance: MaintenanceService,
     private readonly escalation: EscalationService,
+    @Optional() private readonly leader?: LeaderElectionService,
   ) {}
 
   @Cron(CronExpression.EVERY_MINUTE)
   async scan(): Promise<void> {
+    // Cluster-singleton: in bullmq mode only the leader runs repeat-notify + escalation.
+    if (this.leader && !this.leader.isLeader()) return;
     const now = Date.now();
     const incidents = (await this.db.incident.findMany({
       where: { status: { not: 'resolved' } },

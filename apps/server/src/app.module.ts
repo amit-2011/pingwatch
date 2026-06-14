@@ -1,5 +1,6 @@
-import { type DynamicModule, Module } from '@nestjs/common';
+import { type DynamicModule, type Provider, Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
+import IORedis from 'ioredis';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ScheduleModule } from '@nestjs/schedule';
 import { LoggerModule } from 'nestjs-pino';
@@ -22,6 +23,12 @@ import { SetupGuard } from './auth/setup.guard';
 import { MonitorTypeRegistry } from './engine/monitor-type.registry';
 import { CheckRunnerService } from './engine/check-runner.service';
 import { SchedulerService } from './engine/scheduler.service';
+import { SCHEDULER_DRIVER } from './engine/scheduler.driver';
+import { REDIS_CONNECTION } from './engine/bullmq/bullmq.constants';
+import { BullMqSchedulerDriver } from './engine/bullmq/bullmq-scheduler.driver';
+import { CheckWorkerService } from './engine/bullmq/check-worker.service';
+import { MonitorRuntimeStore } from './engine/bullmq/monitor-runtime.store';
+import { LeaderElectionService } from './engine/bullmq/leader-election.service';
 import { HeartbeatWriterService } from './engine/heartbeat-writer.service';
 import { MetricsWriterService } from './engine/metrics-writer.service';
 import { RollupService } from './engine/rollup.service';
@@ -74,6 +81,29 @@ export interface AppModuleDeps {
 export class AppModule {
   static register(deps: AppModuleDeps): DynamicModule {
     const isProd = process.env.NODE_ENV === 'production';
+
+    // P4.2: the scheduler driver. Default = the in-process SchedulerService (zero-config, untouched).
+    // BullMQ activates only when resolveConfig kept scheduler==='bullmq' (Redis + Postgres present),
+    // registering the Redis connection + distributed driver + worker + state store + leader election.
+    const isBullmq = deps.config.scheduler === 'bullmq';
+    const bullmqProviders: Provider[] = isBullmq
+      ? [
+          {
+            provide: REDIS_CONNECTION,
+            useFactory: (config: ResolvedConfig) =>
+              new IORedis(config.redisUrl ?? '', { maxRetriesPerRequest: null, enableReadyCheck: true }),
+            inject: [PINGWATCH_CONFIG],
+          },
+          MonitorRuntimeStore,
+          LeaderElectionService,
+          BullMqSchedulerDriver,
+          CheckWorkerService,
+        ]
+      : [];
+    const schedulerDriverProvider: Provider = isBullmq
+      ? { provide: SCHEDULER_DRIVER, useExisting: BullMqSchedulerDriver }
+      : { provide: SCHEDULER_DRIVER, useExisting: SchedulerService };
+
     return {
       module: AppModule,
       imports: [
@@ -121,6 +151,8 @@ export class AppModule {
         MonitorTypeRegistry,
         CheckRunnerService,
         SchedulerService,
+        schedulerDriverProvider,
+        ...bullmqProviders,
         HeartbeatWriterService,
         MetricsWriterService,
         RollupService,

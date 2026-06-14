@@ -1,9 +1,10 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { HEARTBEAT_STATUS } from '@pingwatch/shared';
 import type { PingWatchPrismaClient } from '@pingwatch/db';
 import { PINGWATCH_CONFIG, PRISMA_CLIENT } from '../common/di-tokens';
 import type { ResolvedConfig } from '../config/schema';
+import { LeaderElectionService } from './bullmq/leader-election.service';
 import { DAY_MS, HOUR_MS, truncToDay, truncToHour } from './time-buckets';
 
 interface Bucket {
@@ -64,6 +65,7 @@ export class RollupService {
   constructor(
     @Inject(PRISMA_CLIENT) private readonly db: PingWatchPrismaClient,
     @Inject(PINGWATCH_CONFIG) private readonly config: ResolvedConfig,
+    @Optional() private readonly leader?: LeaderElectionService,
   ) {}
 
   getLastSuccessAt(): number | null {
@@ -72,6 +74,8 @@ export class RollupService {
 
   @Cron(CronExpression.EVERY_5_MINUTES)
   async rollupAll(): Promise<void> {
+    // In bullmq mode this cluster-singleton runs on the leader only (in-process: no leader → runs).
+    if (this.leader && !this.leader.isLeader()) return;
     if (this.running) return;
     this.running = true;
     try {

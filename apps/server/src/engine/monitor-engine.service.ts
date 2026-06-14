@@ -3,7 +3,7 @@ import { HEARTBEAT_STATUS, type HeartbeatStatus, type MonitorStatus } from '@pin
 import type { PingWatchPrismaClient } from '@pingwatch/db';
 import { PRISMA_CLIENT } from '../common/di-tokens';
 import { HeartbeatWriterService } from './heartbeat-writer.service';
-import { SchedulerService } from './scheduler.service';
+import { SCHEDULER_DRIVER, type SchedulerDriver } from './scheduler.driver';
 import type { MonitorSpec } from './scheduler.types';
 import { DAY_MS } from './time-buckets';
 
@@ -31,7 +31,7 @@ export class MonitorEngineService implements OnApplicationBootstrap {
 
   constructor(
     @Inject(PRISMA_CLIENT) private readonly db: PingWatchPrismaClient,
-    private readonly scheduler: SchedulerService,
+    @Inject(SCHEDULER_DRIVER) private readonly scheduler: SchedulerDriver,
     private readonly writer: HeartbeatWriterService,
   ) {}
 
@@ -47,12 +47,12 @@ export class MonitorEngineService implements OnApplicationBootstrap {
   }
 
   async restart(monitorId: string): Promise<void> {
-    this.scheduler.stopMonitor(monitorId);
+    await this.scheduler.stopMonitor(monitorId);
     await this.start(monitorId);
   }
 
   stop(monitorId: string): void {
-    this.scheduler.stopMonitor(monitorId);
+    void Promise.resolve(this.scheduler.stopMonitor(monitorId));
   }
 
   private async launch(monitor: MonitorRow): Promise<void> {
@@ -66,7 +66,7 @@ export class MonitorEngineService implements OnApplicationBootstrap {
     }
     const initialStatus = await this.rehydrateStatus(monitor.id, monitor.status);
     await this.rehydrateRing(monitor.id);
-    this.scheduler.startMonitor(this.toSpec(monitor, initialStatus));
+    await this.scheduler.startMonitor(this.toSpec(monitor, initialStatus));
   }
 
   /** The last UP/DOWN heartbeat is the confirmed status; PENDING beats are ignored. */
