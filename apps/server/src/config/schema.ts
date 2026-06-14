@@ -16,6 +16,8 @@ export const configSchema = z.object({
   /** When unset, derived as `file:<dataDir>/pingwatch.db`. A postgres(ql):// URL selects Postgres. */
   databaseUrl: z.string().min(1).optional(),
   scheduler: z.enum(['in-process', 'bullmq']).default('in-process'),
+  /** Redis connection for the BullMQ scheduler (P4.2). Required when scheduler is `bullmq`. */
+  redisUrl: z.string().url().optional(),
   rawRetentionDays: z.number().int().min(1).default(7),
   hourlyRetentionDays: z.number().int().min(1).default(90),
   maxConcurrency: z.number().int().min(1).max(1_000).default(50),

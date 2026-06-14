@@ -23,14 +23,20 @@ export interface ApplyDecision {
  */
 export class MonitorRuntime {
   private status: MonitorStatus;
-  private failCount = 0;
+  private failCount: number;
 
-  constructor(initialStatus: MonitorStatus = 'pending') {
+  constructor(initialStatus: MonitorStatus = 'pending', initialFailCount = 0) {
     this.status = initialStatus;
+    this.failCount = Math.max(0, initialFailCount);
   }
 
   getStatus(): MonitorStatus {
     return this.status;
+  }
+
+  /** The full anti-flap state — for the centralized Redis store in bullmq mode (P4.2). */
+  getState(): { status: MonitorStatus; failCount: number } {
+    return { status: this.status, failCount: this.failCount };
   }
 
   applyResult(isUp: boolean, retries: number): ApplyDecision {
