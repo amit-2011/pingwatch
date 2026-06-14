@@ -5,8 +5,8 @@ import { ArrowLeft, Pause, Pencil, Play, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { ApiError, type Heartbeat, type MonitorView, apiFetch, monitorTarget } from '@/lib/api';
+import { Area, AreaChart, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { ApiError, type Heartbeat, type MetricSample, type MonitorView, apiFetch, monitorTarget } from '@/lib/api';
 import { HeartbeatBar } from '@/components/heartbeat-bar';
 import { StatusBadge } from '@/components/status-badge';
 import { Button, Card } from '@/components/ui';
@@ -35,6 +35,13 @@ export default function MonitorDetailPage() {
     queryFn: () => apiFetch<Heartbeat[]>(`/monitors/${id}/heartbeats?limit=${range}`),
     refetchInterval: 5_000,
   });
+  const isSystem = monitor?.type === 'system';
+  const { data: metrics } = useQuery({
+    queryKey: ['metrics', id, range],
+    queryFn: () => apiFetch<MetricSample[]>(`/monitors/${id}/metrics?limit=${range}`),
+    refetchInterval: 5_000,
+    enabled: isSystem,
+  });
 
   const toggle = useMutation({
     mutationFn: () => apiFetch(`/monitors/${id}/${monitor?.isActive ? 'pause' : 'resume'}`, { method: 'POST' }),
@@ -60,6 +67,12 @@ export default function MonitorDetailPage() {
     .filter((b) => b.responseTime !== null)
     .reverse()
     .map((b, i) => ({ i, ms: b.responseTime }));
+  const metricsData = [...(metrics ?? [])].reverse().map((m, i) => ({
+    i,
+    cpu: m.cpuPct,
+    mem: m.memPct,
+    disk: m.diskPct,
+  }));
 
   return (
     <div className="mx-auto max-w-4xl p-8">
@@ -122,7 +135,7 @@ export default function MonitorDetailPage() {
 
       <Card className="p-5">
         <div className="mb-3 flex items-center justify-between">
-          <div className="text-sm font-medium">Response time (ms)</div>
+          <div className="text-sm font-medium">{isSystem ? 'System metrics (%)' : 'Response time (ms)'}</div>
           <div className="flex gap-1">
             {[60, 200].map((r) => (
               <button
@@ -142,22 +155,34 @@ export default function MonitorDetailPage() {
         </div>
         <div className="h-48">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartData}>
-              <defs>
-                <linearGradient id="rt" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#10b981" stopOpacity={0.4} />
-                  <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <XAxis dataKey="i" hide />
-              <YAxis width={44} tick={{ fontSize: 11 }} unit=" ms" />
-              <Tooltip
-                contentStyle={{ fontSize: 12, borderRadius: 8 }}
-                formatter={(value) => [`${String(value)} ms`, 'Response']}
-                labelFormatter={() => ''}
-              />
-              <Area type="monotone" dataKey="ms" stroke="#10b981" strokeWidth={2} fill="url(#rt)" isAnimationActive={false} />
-            </AreaChart>
+            {isSystem ? (
+              <LineChart data={metricsData}>
+                <XAxis dataKey="i" hide />
+                <YAxis width={36} tick={{ fontSize: 11 }} domain={[0, 100]} unit="%" />
+                <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} labelFormatter={() => ''} />
+                <Legend />
+                <Line type="monotone" dataKey="cpu" name="CPU" stroke="#10b981" dot={false} strokeWidth={2} isAnimationActive={false} />
+                <Line type="monotone" dataKey="mem" name="Memory" stroke="#3b82f6" dot={false} strokeWidth={2} isAnimationActive={false} />
+                <Line type="monotone" dataKey="disk" name="Disk" stroke="#f59e0b" dot={false} strokeWidth={2} isAnimationActive={false} />
+              </LineChart>
+            ) : (
+              <AreaChart data={chartData}>
+                <defs>
+                  <linearGradient id="rt" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#10b981" stopOpacity={0.4} />
+                    <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="i" hide />
+                <YAxis width={44} tick={{ fontSize: 11 }} unit=" ms" />
+                <Tooltip
+                  contentStyle={{ fontSize: 12, borderRadius: 8 }}
+                  formatter={(value) => [`${String(value)} ms`, 'Response']}
+                  labelFormatter={() => ''}
+                />
+                <Area type="monotone" dataKey="ms" stroke="#10b981" strokeWidth={2} fill="url(#rt)" isAnimationActive={false} />
+              </AreaChart>
+            )}
           </ResponsiveContainer>
         </div>
       </Card>

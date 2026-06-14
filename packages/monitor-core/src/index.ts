@@ -9,12 +9,14 @@ import { tcpMonitorType } from './tcp.monitor';
 import { pingMonitorType } from './ping.monitor';
 import { dnsMonitorType } from './dns.monitor';
 import { sslMonitorType } from './ssl.monitor';
+import { systemMonitorType } from './system.monitor';
 
 export { httpMonitorType } from './http.monitor';
 export { tcpMonitorType } from './tcp.monitor';
 export { pingMonitorType } from './ping.monitor';
 export { dnsMonitorType } from './dns.monitor';
 export { sslMonitorType } from './ssl.monitor';
+export { systemMonitorType } from './system.monitor';
 
 /** Every monitor type bundled in this build. The engine registry loads these at startup. */
 export const builtinMonitorTypes: MonitorType[] = [
@@ -23,4 +25,5 @@ export const builtinMonitorTypes: MonitorType[] = [
   pingMonitorType,
   dnsMonitorType,
   sslMonitorType,
+  systemMonitorType,
 ];

@@ -13,6 +13,7 @@ const TYPE_OPTIONS = [
   { value: 'ping', label: 'Ping (ICMP)' },
   { value: 'dns', label: 'DNS' },
   { value: 'ssl', label: 'SSL Certificate' },
+  { value: 'system', label: 'System (this host)' },
 ] as const;
 
 const SELECT_CLASS =
@@ -55,6 +56,8 @@ export function MonitorForm({ monitor }: { monitor?: MonitorView }) {
 
   function buildConfig(): Record<string, unknown> {
     switch (type) {
+      case 'system':
+        return { source: 'local' };
       case 'tcp':
         return { host, port };
       case 'ping':
@@ -188,6 +191,12 @@ export function MonitorForm({ monitor }: { monitor?: MonitorView }) {
               </div>
             )}
           </div>
+        )}
+
+        {type === 'system' && (
+          <p className="text-sm text-slate-500">
+            Collects CPU, memory, disk, and network metrics from the host running PingWatch. No target needed.
+          </p>
         )}
       </Card>
 
