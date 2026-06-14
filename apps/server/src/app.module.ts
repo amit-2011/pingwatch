@@ -20,6 +20,11 @@ import { SetupController } from './auth/setup.controller';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { RolesGuard } from './auth/roles.guard';
 import { SetupGuard } from './auth/setup.guard';
+import { AUTH_FRONTEND } from './auth/frontends/auth-frontend';
+import { TrustedHeaderStrategy } from './auth/frontends/trusted-header.strategy';
+import { OidcStrategy } from './auth/frontends/oidc.strategy';
+import { ExternalIdentityService } from './auth/external-identity.service';
+import { SsoController } from './auth/sso.controller';
 import { MonitorTypeRegistry } from './engine/monitor-type.registry';
 import { CheckRunnerService } from './engine/check-runner.service';
 import { SchedulerService } from './engine/scheduler.service';
@@ -104,6 +109,20 @@ export class AppModule {
       ? { provide: SCHEDULER_DRIVER, useExisting: BullMqSchedulerDriver }
       : { provide: SCHEDULER_DRIVER, useExisting: SchedulerService };
 
+    // P4.5: external auth frontends — opt-in. Local mode registers nothing new (today's behavior).
+    const authMode = deps.config.auth.mode;
+    const ssoProviders: Provider[] =
+      authMode === 'local'
+        ? []
+        : [
+            ExternalIdentityService,
+            ...(authMode === 'trusted-header'
+              ? [TrustedHeaderStrategy, { provide: AUTH_FRONTEND, useExisting: TrustedHeaderStrategy }]
+              : []),
+            ...(authMode === 'oidc' ? [OidcStrategy] : []),
+          ];
+    const ssoControllers = authMode === 'local' ? [] : [SsoController];
+
     return {
       module: AppModule,
       imports: [
@@ -135,6 +154,7 @@ export class AppModule {
         ApiTokenController,
         TokenIntrospectController,
         ConfigIoController,
+        ...ssoControllers,
       ],
       providers: [
         { provide: APP_SECRET, useValue: deps.secret },
@@ -153,6 +173,7 @@ export class AppModule {
         SchedulerService,
         schedulerDriverProvider,
         ...bullmqProviders,
+        ...ssoProviders,
         HeartbeatWriterService,
         MetricsWriterService,
         RollupService,

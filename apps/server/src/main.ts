@@ -7,13 +7,13 @@ import { deployMigrations } from '@pingwatch/db';
 import { resolveConfig, type CliFlags } from './config/resolve';
 import { initDatabase } from './bootstrap/database';
 import { ensureDataDir } from './bootstrap/paths';
-import { ensureSecret } from './bootstrap/secret';
+import { ensureMasterSecret } from './bootstrap/secret';
 import { startServer } from './bootstrap/server';
 
 export async function startPingWatch(flags: CliFlags = {}): Promise<void> {
   const config = resolveConfig(flags);
   ensureDataDir(config.dataDir);
-  const secret = ensureSecret(config.dataDir);
+  const secret = await ensureMasterSecret(config);
 
   console.log(`[pingwatch] data dir : ${config.dataDir}`);
   console.log(`[pingwatch] database : ${config.databaseUrl}`);

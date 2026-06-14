@@ -54,6 +54,11 @@ export async function startServer(options: StartServerOptions): Promise<ServerHa
   await nextApp.prepare();
 
   const expressApp = express();
+  // P4.5: trust the configured reverse proxies so req.ip is the real client (only when set, to keep
+  // localhost req.ip unchanged by default). The header strategy still checks the immediate peer.
+  if (options.config.auth.trustedProxyCidrs.length > 0) {
+    expressApp.set('trust proxy', options.config.auth.trustedProxyCidrs);
+  }
   // (1) security headers + cookie + body parsers FIRST, scoped to /api only (Next manages its own).
   expressApp.use('/api', helmet());
   expressApp.use('/api', cookieParser());

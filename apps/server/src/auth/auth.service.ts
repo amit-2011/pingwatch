@@ -116,6 +116,27 @@ export class AuthService {
     await this.refresh.revokeAllForUser(userId);
   }
 
+  /** Mint a session for an existing user (P4.5: used by external-identity SSO sign-in). */
+  async issueSessionForUser(userId: string, ctx: RotationContext): Promise<AuthSession> {
+    const user = await this.db.user.findUnique({
+      where: { id: userId },
+      include: { memberships: { orderBy: { createdAt: 'asc' }, take: 1 } },
+    });
+    if (!user) throw new DomainException('UNAUTHORIZED', 'User not found', 401);
+    const membership = user.memberships[0];
+    if (!membership) throw new DomainException('FORBIDDEN', 'User has no organization membership', 403);
+    return this.startSession(
+      {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        organizationId: membership.organizationId,
+        role: membership.role as UserRole,
+      },
+      ctx,
+    );
+  }
+
   private async startSession(user: AuthUser, ctx: RotationContext): Promise<AuthSession> {
     const accessToken = this.jwt.sign({ sub: user.id, email: user.email });
     const refresh = await this.refresh.issue(user.id, ctx);

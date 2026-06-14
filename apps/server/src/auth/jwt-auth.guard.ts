@@ -1,10 +1,12 @@
-import { type CanActivate, type ExecutionContext, Inject, Injectable } from '@nestjs/common';
+import { type CanActivate, type ExecutionContext, Inject, Injectable, Optional } from '@nestjs/common';
 import type { PingWatchPrismaClient } from '@pingwatch/db';
 import type { UserRole } from '@pingwatch/shared';
 import { PRISMA_CLIENT } from '../common/di-tokens';
 import { DomainException } from '../common/domain.exception';
 import type { RequestWithUser } from './authenticated-user';
 import { AuthJwtService } from './jwt.service';
+import { AUTH_FRONTEND, type AuthFrontend } from './frontends/auth-frontend';
+import { ExternalIdentityService } from './external-identity.service';
 
 /**
  * Verifies the HS256 access token from `Authorization: Bearer`, then loads the user's membership
@@ -15,12 +17,23 @@ export class JwtAuthGuard implements CanActivate {
   constructor(
     private readonly jwt: AuthJwtService,
     @Inject(PRISMA_CLIENT) private readonly db: PingWatchPrismaClient,
+    @Optional() @Inject(AUTH_FRONTEND) private readonly frontend?: AuthFrontend,
+    @Optional() private readonly externalIdentity?: ExternalIdentityService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest<RequestWithUser>();
     const header = req.headers.authorization;
     if (!header || !header.startsWith('Bearer ')) {
+      // P4.5 trusted-header mode: no Bearer → let the reverse-proxy headers authenticate (the
+      // strategy itself enforces the trusted-proxy source). The Bearer/JWT path below is unchanged.
+      if (this.frontend?.mode === 'trusted-header' && this.externalIdentity) {
+        const identity = await this.frontend.tryResolve(req);
+        if (identity) {
+          req.user = await this.externalIdentity.provisionUser(identity);
+          return true;
+        }
+      }
       throw new DomainException('UNAUTHORIZED', 'Missing access token', 401);
     }
 

@@ -6,6 +6,13 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import type { ResolvedConfig } from '../config/schema';
+import { selectSecretBackend } from '../crypto/secret-backend';
+
+/** Resolve the master secret via the configured backend (file | env | kms) — P4.5. */
+export function ensureMasterSecret(config: ResolvedConfig): Promise<string> {
+  return selectSecretBackend(config).load();
+}
 
 export function ensureSecret(dataDir: string): string {
   const fromEnv = process.env.APP_SECRET ?? process.env.PINGWATCH_APP_SECRET;

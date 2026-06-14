@@ -13,4 +13,5 @@ export * from './config-io';
 export * from './escalation';
 export * from './incident';
 export * from './maintenance';
+export * from './sso';
 export * from './status-page';
