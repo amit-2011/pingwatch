@@ -314,11 +314,15 @@ model ApiToken {
   prefix         String // first 8 chars for UI
   organizationId String
   monitorId      String? // agent tokens bind to one system-metric monitor
-  scopes         String // JSON-string array e.g. ["metrics:write"]
+  scopes         String // JSON-string array e.g. ["metrics:write"] or ["read","write"]
   createdById    String?
   lastUsedAt     DateTime?
   expiresAt      DateTime?
   revokedAt      DateTime?
+  // Rotation + reuse detection (P4.6), mirroring RefreshToken: rotating issues a new token in the
+  // same family; presenting a token whose rotatedToId is set (already superseded) revokes the family.
+  family         String?
+  rotatedToId    String?   @unique
   createdAt      DateTime  @default(now())
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -327,6 +331,7 @@ model ApiToken {
 
   @@index([organizationId])
   @@index([prefix])
+  @@index([family])
 }
 
 model SetupState {

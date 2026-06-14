@@ -15,6 +15,9 @@ export type {
   MaintenanceWindowView,
   EscalationPolicyView,
   EscalationStepView,
+  ApiTokenView,
+  ApiTokenSecretView,
+  TokenScope,
 } from '@pingwatch/shared';
 
 export class ApiError extends Error {
