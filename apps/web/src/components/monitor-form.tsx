@@ -50,6 +50,7 @@ export function MonitorForm({ monitor }: { monitor?: MonitorView }) {
 
   const [intervalSeconds, setIntervalSeconds] = useState(monitor?.intervalSeconds ?? 60);
   const [retries, setRetries] = useState(monitor?.retries ?? 3);
+  const [retryIntervalSeconds, setRetryIntervalSeconds] = useState(monitor?.retryIntervalSeconds ?? 30);
   const [timeoutMs, setTimeoutMs] = useState(monitor?.timeoutMs ?? 30_000);
   const [notifyChannelIds, setNotifyChannelIds] = useState<string[]>(monitor?.notifyChannelIds ?? []);
   const [resendEveryMin, setResendEveryMin] = useState(monitor?.resendEveryMin != null ? String(monitor.resendEveryMin) : '');
@@ -79,7 +80,7 @@ export function MonitorForm({ monitor }: { monitor?: MonitorView }) {
       if (monitor) {
         return apiFetch<MonitorView>(`/monitors/${monitor.id}`, {
           method: 'PATCH',
-          body: JSON.stringify({ name, intervalSeconds, retries, timeoutMs, config, ...notify }),
+          body: JSON.stringify({ name, intervalSeconds, retries, retryIntervalSeconds, timeoutMs, config, ...notify }),
         });
       }
       return apiFetch<MonitorView>('/monitors', {
@@ -90,7 +91,7 @@ export function MonitorForm({ monitor }: { monitor?: MonitorView }) {
           projectId: projects?.[0]?.id,
           intervalSeconds,
           retries,
-          retryIntervalSeconds: 30,
+          retryIntervalSeconds,
           timeoutMs,
           isActive: true,
           config,
@@ -212,10 +213,21 @@ export function MonitorForm({ monitor }: { monitor?: MonitorView }) {
 
       <Card className="space-y-4 p-6">
         <h3 className="font-medium">Checks &amp; anti-flap</h3>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <Label htmlFor="interval">Interval (s)</Label>
             <Input id="interval" type="number" min={20} value={intervalSeconds} onChange={(e) => setIntervalSeconds(Number(e.target.value))} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="retryInterval">Retry interval (s)</Label>
+            <Input
+              id="retryInterval"
+              type="number"
+              min={5}
+              max={3600}
+              value={retryIntervalSeconds}
+              onChange={(e) => setRetryIntervalSeconds(Number(e.target.value))}
+            />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="retries">Retries</Label>
@@ -227,7 +239,9 @@ export function MonitorForm({ monitor }: { monitor?: MonitorView }) {
           </div>
         </div>
         <p className="text-xs text-slate-400">
-          A single failure never alerts — the monitor is marked down only after {retries + 1} consecutive failures.
+          A single failure never alerts — the monitor is marked down only after {retries + 1} consecutive failures. The
+          normal <span className="font-medium">interval</span> is used while the monitor is steady; the{' '}
+          <span className="font-medium">retry interval</span> is used only between those confirmation retries.
         </p>
       </Card>
 
