@@ -1,5 +1,10 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
-import { type CreateChannelInput, createChannelSchema } from '@pingwatch/shared';
+import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import {
+  type CreateChannelInput,
+  type UpdateChannelInput,
+  createChannelSchema,
+  updateChannelSchema,
+} from '@pingwatch/shared';
 import type { AuthenticatedUser } from '../auth/authenticated-user';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -25,6 +30,15 @@ export class ChannelController {
   @Get()
   list(@CurrentUser() user: AuthenticatedUser) {
     return this.channels.list(user.organizationId);
+  }
+
+  @Patch(':id')
+  update(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(updateChannelSchema)) dto: UpdateChannelInput,
+  ) {
+    return this.channels.update(user.organizationId, id, dto);
   }
 
   @Post(':id/test')

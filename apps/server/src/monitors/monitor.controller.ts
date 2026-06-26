@@ -13,7 +13,7 @@ import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { PRISMA_CLIENT } from '../common/di-tokens';
 import { ZodValidationPipe } from '../common/zod-validation.pipe';
-import { MonitorService } from './monitor.service';
+import { MONITOR_HISTORY_RANGES, type MonitorHistoryRange, MonitorService } from './monitor.service';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller()
@@ -49,6 +49,18 @@ export class MonitorController {
     @Query('limit') limit?: string,
   ) {
     return this.monitors.heartbeats(user.organizationId, id, limit ? Number(limit) : 100);
+  }
+
+  @Get('monitors/:id/history')
+  history(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Query('range') range?: string,
+  ) {
+    const valid = (MONITOR_HISTORY_RANGES as readonly string[]).includes(range ?? '')
+      ? (range as MonitorHistoryRange)
+      : 'recent';
+    return this.monitors.history(user.organizationId, id, valid);
   }
 
   @Get('monitors/:id/metrics')

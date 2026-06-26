@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { CreateChannelInput, NotificationEvent, SendResult } from '@pingwatch/shared';
+import type { CreateChannelInput, NotificationEvent, SendResult, UpdateChannelInput } from '@pingwatch/shared';
 import type { PingWatchPrismaClient } from '@pingwatch/db';
 import { PRISMA_CLIENT } from '../common/di-tokens';
 import { DomainException } from '../common/domain.exception';
@@ -52,6 +52,37 @@ export class ChannelService {
   async list(organizationId: string): Promise<ChannelView[]> {
     const channels = await this.db.notificationChannel.findMany({ where: { organizationId } });
     return channels.map((c) => this.toView(c));
+  }
+
+  async update(organizationId: string, channelId: string, input: UpdateChannelInput): Promise<ChannelView> {
+    const existing = await this.db.notificationChannel.findFirst({ where: { id: channelId, organizationId } });
+    if (!existing) throw new DomainException('NOT_FOUND', 'Channel not found', 404);
+
+    const data: { name?: string; type?: string; isActive?: boolean; config?: string } = {};
+    if (input.name !== undefined) data.name = input.name;
+    if (input.isActive !== undefined) data.isActive = input.isActive;
+    if (input.type !== undefined) data.type = input.type;
+
+    // The sealed config is never returned, so it is only touched when the caller sends a new one.
+    if (input.config !== undefined) {
+      const nextType = input.type ?? existing.type;
+      const provider = this.registry.get(nextType);
+      if (!provider) {
+        throw new DomainException('VALIDATION_ERROR', `Unknown notification provider: ${nextType}`, 400);
+      }
+      try {
+        provider.configSchema.parse(input.config);
+      } catch {
+        throw new DomainException('VALIDATION_ERROR', `Invalid config for ${nextType}`, 400);
+      }
+      data.config = this.secretBox.seal(JSON.stringify(input.config));
+    } else if (input.type !== undefined && input.type !== existing.type) {
+      // Switching provider type without new credentials would leave a config that no longer matches.
+      throw new DomainException('VALIDATION_ERROR', 'A new config is required when changing the channel type', 400);
+    }
+
+    const channel = await this.db.notificationChannel.update({ where: { id: channelId }, data });
+    return this.toView(channel);
   }
 
   async test(organizationId: string, channelId: string): Promise<SendResult> {

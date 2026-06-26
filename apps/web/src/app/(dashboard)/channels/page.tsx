@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Send } from 'lucide-react';
+import { Pencil, Plus, Send, X } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 import type { ChannelType } from '@pingwatch/shared';
 import { ApiError, type ChannelView, apiFetch } from '@/lib/api';
@@ -28,6 +28,7 @@ export default function ChannelsPage() {
   const { data: channels } = useQuery({ queryKey: ['channels'], queryFn: () => apiFetch<ChannelView[]>('/channels') });
 
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [type, setType] = useState<ChannelType>('telegram');
   const [name, setName] = useState('');
   const [fields, setFields] = useState<Record<string, string>>({});
@@ -35,6 +36,33 @@ export default function ChannelsPage() {
   const [results, setResults] = useState<Record<string, string>>({});
 
   const set = (k: string, v: string) => setFields((p) => ({ ...p, [k]: v }));
+
+  function resetForm() {
+    setEditingId(null);
+    setType('telegram');
+    setName('');
+    setFields({});
+    setError(null);
+  }
+
+  function closeForm() {
+    setShowForm(false);
+    resetForm();
+  }
+
+  function openCreate() {
+    resetForm();
+    setShowForm(true);
+  }
+
+  function openEdit(channel: ChannelView) {
+    setEditingId(channel.id);
+    setType(channel.type as ChannelType);
+    setName(channel.name);
+    setFields({});
+    setError(null);
+    setShowForm(true);
+  }
 
   function buildConfig(): Record<string, unknown> {
     switch (type) {
@@ -84,14 +112,25 @@ export default function ChannelsPage() {
     }
   }
 
-  const create = useMutation({
-    mutationFn: () =>
-      apiFetch('/channels', { method: 'POST', body: JSON.stringify({ name, type, config: buildConfig(), isActive: true }) }),
+  // When editing, the stored config (secrets) is never returned, so the config fields start blank
+  // and are only resubmitted if the user actually typed something — otherwise the existing one is kept.
+  const hasConfigInput = Object.values(fields).some((v) => v.trim() !== '');
+
+  const save = useMutation({
+    mutationFn: () => {
+      if (editingId) {
+        const body: Record<string, unknown> = { name, type };
+        if (hasConfigInput) body.config = buildConfig();
+        return apiFetch(`/channels/${editingId}`, { method: 'PATCH', body: JSON.stringify(body) });
+      }
+      return apiFetch('/channels', {
+        method: 'POST',
+        body: JSON.stringify({ name, type, config: buildConfig(), isActive: true }),
+      });
+    },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['channels'] });
-      setShowForm(false);
-      setName('');
-      setFields({});
+      closeForm();
     },
     onError: (e) => setError(e instanceof ApiError ? e.message : 'Failed to save'),
   });
@@ -105,7 +144,7 @@ export default function ChannelsPage() {
   function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    create.mutate();
+    save.mutate();
   }
 
   return (
@@ -115,7 +154,7 @@ export default function ChannelsPage() {
           <h1 className="text-2xl font-bold">Notifications</h1>
           <p className="text-sm text-slate-500">Where PingWatch sends alerts.</p>
         </div>
-        <Button onClick={() => setShowForm((s) => !s)}>
+        <Button onClick={() => (showForm && !editingId ? closeForm() : openCreate())}>
           <Plus className="h-4 w-4" />
           Add channel
         </Button>
@@ -123,6 +162,12 @@ export default function ChannelsPage() {
 
       {showForm && (
         <Card className="mb-6 p-6">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold">{editingId ? 'Edit channel' : 'New channel'}</h2>
+            <Button type="button" variant="ghost" size="sm" onClick={closeForm} aria-label="Close">
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
           <form onSubmit={onSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
@@ -215,10 +260,20 @@ export default function ChannelsPage() {
               </>
             )}
 
+            {editingId && (
+              <p className="text-xs text-slate-500">
+                Leave the credential fields blank to keep the saved values. Fill them in only to replace the current config.
+              </p>
+            )}
             {error && <p className="text-sm text-red-600">{error}</p>}
-            <Button type="submit" disabled={create.isPending}>
-              {create.isPending ? 'Saving…' : 'Save channel'}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button type="submit" disabled={save.isPending}>
+                {save.isPending ? 'Saving…' : editingId ? 'Save changes' : 'Save channel'}
+              </Button>
+              <Button type="button" variant="outline" onClick={closeForm}>
+                Cancel
+              </Button>
+            </div>
           </form>
         </Card>
       )}
@@ -236,6 +291,10 @@ export default function ChannelsPage() {
               </div>
               <div className="flex items-center gap-3">
                 {results[c.id] && <span className="text-sm text-slate-500">{results[c.id]}</span>}
+                <Button variant="outline" size="sm" onClick={() => openEdit(c)}>
+                  <Pencil className="h-4 w-4" />
+                  Edit
+                </Button>
                 <Button variant="outline" size="sm" onClick={() => test.mutate(c.id)} disabled={test.isPending}>
                   <Send className="h-4 w-4" />
                   Test

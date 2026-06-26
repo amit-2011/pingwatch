@@ -1,18 +1,28 @@
+import { statusMeta } from '@/lib/status';
 import { cn } from '@/lib/utils';
 
-const STYLES: Record<string, { label: string; dot: string; text: string }> = {
-  up: { label: 'Up', dot: 'bg-emerald-500', text: 'text-emerald-600 dark:text-emerald-400' },
-  down: { label: 'Down', dot: 'bg-red-500', text: 'text-red-600 dark:text-red-400' },
-  pending: { label: 'Pending', dot: 'bg-amber-500', text: 'text-amber-600 dark:text-amber-400' },
-  paused: { label: 'Paused', dot: 'bg-slate-400', text: 'text-slate-500' },
-  maintenance: { label: 'Maintenance', dot: 'bg-blue-500', text: 'text-blue-600 dark:text-blue-400' },
-};
-
-export function StatusBadge({ status }: { status: string }) {
-  const s = STYLES[status] ?? STYLES.pending!;
+export function StatusBadge({ status, className }: { status: string; className?: string }) {
+  const s = statusMeta(status);
   return (
-    <span className={cn('inline-flex items-center gap-1.5 text-sm font-medium', s.text)}>
-      <span className={cn('h-2 w-2 rounded-full', s.dot)} />
+    <span className={cn('inline-flex items-center gap-1.5 text-sm font-medium', s.text, className)}>
+      <span className={cn('h-2 w-2 rounded-full', s.solid)} />
+      {s.label}
+    </span>
+  );
+}
+
+/** A filled pill version for prominent placements (detail header, overview). */
+export function StatusPill({ status, className }: { status: string; className?: string }) {
+  const s = statusMeta(status);
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold',
+        s.soft,
+        className,
+      )}
+    >
+      <span className={cn('h-1.5 w-1.5 rounded-full', s.solid)} />
       {s.label}
     </span>
   );

@@ -103,6 +103,21 @@ export const createChannelSchema = z.object({
 });
 export type CreateChannelInput = z.infer<typeof createChannelSchema>;
 
+/**
+ * Partial update DTO. Every field is optional so callers can rename a channel or toggle it without
+ * resubmitting secrets — `config` is only re-sealed when present (the sealed value is never returned,
+ * so an omitted `config` means "keep the existing one").
+ */
+export const updateChannelSchema = z
+  .object({
+    name: z.string().min(1).max(120),
+    type: z.enum(CHANNEL_TYPES),
+    config: z.record(z.unknown()),
+    isActive: z.boolean(),
+  })
+  .partial();
+export type UpdateChannelInput = z.infer<typeof updateChannelSchema>;
+
 /** The monitor identity embedded in a notification (only public-safe fields). */
 export interface NotificationEventMonitor {
   id: string;

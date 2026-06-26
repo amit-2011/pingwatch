@@ -1,5 +1,10 @@
 @import 'tailwindcss';
 
+/* Brand accent (green). Enables bg-primary / text-primary / fill-primary / etc. */
+@theme {
+  --color-primary: #5cdd8b;
+}
+
 /* Tailwind v4 defaults `dark:` to prefers-color-scheme; drive it off the next-themes `.dark` class instead. */
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -18,4 +23,16 @@ body {
   color: var(--foreground);
   font-family:
     ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* Recharts' accessibility layer makes the chart SVG focusable; suppress the focus box on click. */
+.recharts-wrapper,
+.recharts-wrapper:focus,
+.recharts-wrapper:focus-visible,
+.recharts-surface,
+.recharts-surface:focus,
+.recharts-surface:focus-visible,
+.recharts-wrapper *:focus,
+.recharts-wrapper *:focus-visible {
+  outline: none !important;
 }

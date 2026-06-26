@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Activity, Bell, FileCode, Globe, KeyRound, ListOrdered, LogOut, Settings, Siren, Users, Wrench } from 'lucide-react';
+import { Activity, Bell, FileCode, Globe, KeyRound, LayoutDashboard, ListOrdered, LogOut, Settings, Siren, Users, Wrench } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
@@ -10,6 +10,7 @@ import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 
 const NAV = [
+  { href: '/overview', label: 'Overview', icon: LayoutDashboard },
   { href: '/monitors', label: 'Monitors', icon: Activity },
   { href: '/incidents', label: 'Incidents', icon: Siren },
   { href: '/escalation', label: 'Escalation', icon: ListOrdered },
@@ -59,7 +60,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950">
       <aside className="flex w-60 flex-col border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
         <div className="flex h-16 items-center gap-2 border-b border-slate-200 px-5 dark:border-slate-800">
-          <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+          <span className="h-2.5 w-2.5 rounded-full bg-primary" />
           <span className="text-lg font-bold">PingWatch</span>
         </div>
         <div className="border-b border-slate-200 p-3 dark:border-slate-800">
