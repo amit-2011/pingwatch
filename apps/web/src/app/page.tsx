@@ -11,7 +11,7 @@ export default function Home() {
   useEffect(() => {
     if (status === 'needs-setup') router.replace('/setup');
     else if (status === 'unauthenticated') router.replace('/login');
-    else if (status === 'authenticated') router.replace('/monitors');
+    else if (status === 'authenticated') router.replace('/overview');
   }, [status, router]);
 
   return <div className="flex min-h-screen items-center justify-center text-slate-500">Loading…</div>;

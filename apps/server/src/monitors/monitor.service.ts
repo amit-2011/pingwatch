@@ -1,8 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { HEARTBEAT_STATUS } from '@pingwatch/shared';
 import type { CreateMonitorInput, MonitorStatus, UpdateMonitorInput } from '@pingwatch/shared';
 import type { PingWatchPrismaClient, Prisma } from '@pingwatch/db';
 import { PRISMA_CLIENT } from '../common/di-tokens';
 import { DomainException } from '../common/domain.exception';
+import { DAY_MS, HOUR_MS } from '../engine/time-buckets';
 import { MonitorEngineService } from '../engine/monitor-engine.service';
 
 interface MonitorRecord {
@@ -31,6 +33,59 @@ export interface MonitorView extends Omit<MonitorRecord, 'config' | 'status'> {
   config: unknown;
   notifyChannelIds?: string[];
   resendEveryMin?: number | null;
+  /** Last ~40 beat statuses, oldest→newest, for the list sparkline (list endpoint only). */
+  recentBeats?: number[];
+}
+
+/** Chart range selector values. Short ranges read raw heartbeats; long ranges read rollups. */
+export const MONITOR_HISTORY_RANGES = ['recent', '3h', '6h', '24h', '1w', '1y'] as const;
+export type MonitorHistoryRange = (typeof MONITOR_HISTORY_RANGES)[number];
+
+/** Normalized response-time chart point — one raw beat (short ranges) or one rollup bucket (long ranges). */
+export interface HistoryPoint {
+  t: number; // epoch ms (beat time, or bucket start)
+  avg: number | null; // avg response time (ms); null when there was no successful sample
+  min: number | null;
+  max: number | null;
+  up: number; // up count (1 for a raw up beat; upCount for a bucket)
+  down: number; // down count (drives the red band)
+  maint: number; // maintenance count (drives the blue band)
+  pending: number; // pending count (drives the amber band); raw beats only — rollups don't track it
+}
+
+function beatToPoint(b: { status: number; responseTime: number | null; createdAt: Date }): HistoryPoint {
+  const t = b.createdAt.getTime();
+  if (b.status === HEARTBEAT_STATUS.UP) {
+    return { t, avg: b.responseTime, min: b.responseTime, max: b.responseTime, up: 1, down: 0, maint: 0, pending: 0 };
+  }
+  if (b.status === HEARTBEAT_STATUS.DOWN) return { t, avg: null, min: null, max: null, up: 0, down: 1, maint: 0, pending: 0 };
+  if (b.status === HEARTBEAT_STATUS.MAINTENANCE) return { t, avg: null, min: null, max: null, up: 0, down: 0, maint: 1, pending: 0 };
+  return { t, avg: null, min: null, max: null, up: 0, down: 0, maint: 0, pending: 1 }; // PENDING → amber band
+}
+
+function bucketToPoint(r: {
+  bucket: Date;
+  avgResponseTime: number | null;
+  minResponseTime: number | null;
+  maxResponseTime: number | null;
+  upCount: number;
+  downCount: number;
+  maintenanceCount: number;
+}): HistoryPoint {
+  // The rollup's avg/min/max fold in DOWN beats' connect-failure times, so they're only meaningful
+  // when the bucket had successful samples. With no up beats, null them so the line breaks (gap)
+  // under the red band — consistent with the raw-beat path.
+  const hasUp = r.upCount > 0;
+  return {
+    t: r.bucket.getTime(),
+    avg: hasUp ? r.avgResponseTime : null,
+    min: hasUp ? r.minResponseTime : null,
+    max: hasUp ? r.maxResponseTime : null,
+    up: r.upCount,
+    down: r.downCount,
+    maint: r.maintenanceCount,
+    pending: 0, // rollups don't track pending (it's transient); only raw-beat ranges show amber
+  };
 }
 
 @Injectable()
@@ -45,7 +100,21 @@ export class MonitorService {
       where: { organizationId },
       orderBy: { createdAt: 'desc' },
     });
-    return monitors.map((m) => this.toView(m));
+    // Attach a small recent-beat window per monitor for the list sparkline (oldest→newest).
+    const beatsByMonitor = await Promise.all(
+      monitors.map((m) =>
+        this.db.heartbeat.findMany({
+          where: { monitorId: m.id },
+          orderBy: { createdAt: 'desc' },
+          take: 40,
+          select: { status: true },
+        }),
+      ),
+    );
+    return monitors.map((m, i) => ({
+      ...this.toView(m),
+      recentBeats: beatsByMonitor[i]!.map((b) => b.status).reverse(),
+    }));
   }
 
   async get(organizationId: string, id: string): Promise<MonitorView> {
@@ -150,6 +219,56 @@ export class MonitorService {
       take: Math.min(Math.max(limit, 1), 500),
       select: { status: true, responseTime: true, statusCode: true, message: true, important: true, createdAt: true },
     });
+  }
+
+  /**
+   * Normalized response-time series for the chart. Short ranges (recent/3h/6h) read raw heartbeats
+   * for a fine-grained line; long ranges (24h/1w/1y) read pre-aggregated rollups so the window stays
+   * full and cheap regardless of how many raw beats exist (or have been purged past retention).
+   */
+  async history(organizationId: string, id: string, range: MonitorHistoryRange): Promise<HistoryPoint[]> {
+    await this.requireMonitor(organizationId, id);
+    const now = Date.now();
+    const bucketSelect = {
+      bucket: true,
+      avgResponseTime: true,
+      minResponseTime: true,
+      maxResponseTime: true,
+      upCount: true,
+      downCount: true,
+      maintenanceCount: true,
+    } as const;
+
+    if (range === 'recent' || range === '3h' || range === '6h') {
+      const where: Prisma.HeartbeatWhereInput = { monitorId: id };
+      if (range !== 'recent') where.createdAt = { gte: new Date(now - (range === '3h' ? 3 : 6) * HOUR_MS) };
+      const beats = await this.db.heartbeat.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        take: range === 'recent' ? 100 : 1500,
+        select: { status: true, responseTime: true, createdAt: true },
+      });
+      return beats.reverse().map(beatToPoint);
+    }
+
+    if (range === '24h' || range === '1w') {
+      const since = new Date(now - (range === '24h' ? DAY_MS : 7 * DAY_MS));
+      const rows = await this.db.statHourly.findMany({
+        where: { monitorId: id, bucket: { gte: since } },
+        orderBy: { bucket: 'asc' },
+        select: bucketSelect,
+      });
+      return rows.map(bucketToPoint);
+    }
+
+    // '1y' → daily buckets
+    const since = new Date(now - 365 * DAY_MS);
+    const rows = await this.db.statDaily.findMany({
+      where: { monitorId: id, bucket: { gte: since } },
+      orderBy: { bucket: 'asc' },
+      select: bucketSelect,
+    });
+    return rows.map(bucketToPoint);
   }
 
   async metrics(organizationId: string, id: string, limit: number): Promise<unknown[]> {

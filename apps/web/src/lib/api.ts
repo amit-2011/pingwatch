@@ -53,6 +53,8 @@ export interface MonitorView {
   createdAt: string;
   notifyChannelIds?: string[];
   resendEveryMin?: number | null;
+  /** Last ~40 beat statuses, oldest→newest, for the list sparkline (list endpoint only). */
+  recentBeats?: number[];
 }
 
 export interface Heartbeat {
@@ -62,6 +64,20 @@ export interface Heartbeat {
   message: string | null;
   important: boolean;
   createdAt: string;
+}
+
+export type MonitorHistoryRange = 'recent' | '3h' | '6h' | '24h' | '1w' | '1y';
+
+/** Normalized response-time chart point from /monitors/:id/history (raw beat or rollup bucket). */
+export interface HistoryPoint {
+  t: number; // epoch ms
+  avg: number | null; // avg response time (ms); null = no successful sample
+  min: number | null;
+  max: number | null;
+  up: number;
+  down: number; // > 0 → red band
+  maint: number; // > 0 → blue band
+  pending: number; // > 0 → amber band (raw-beat ranges only; rollups don't track pending)
 }
 
 export interface MetricSample {

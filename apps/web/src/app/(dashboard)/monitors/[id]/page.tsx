@@ -1,215 +1,24 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Pause, Pencil, Play, Trash2 } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { useState } from 'react';
-import { Area, AreaChart, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { ApiError, type Heartbeat, type MetricSample, type MonitorView, apiFetch, monitorTarget } from '@/lib/api';
-import { HeartbeatBar } from '@/components/heartbeat-bar';
-import { StatusBadge } from '@/components/status-badge';
-import { Button, Card } from '@/components/ui';
-import { cn } from '@/lib/utils';
-
-function uptimeLabel(v: number | null): string {
-  return v === null ? '—' : `${v.toFixed(2)}%`;
-}
+import { MonitorDetail } from '@/components/monitor-detail';
 
 export default function MonitorDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const qc = useQueryClient();
-  const [actionError, setActionError] = useState<string | null>(null);
-  const [range, setRange] = useState(60);
-  const [agentToken, setAgentToken] = useState<string | null>(null);
-  const onActionError = (e: unknown) =>
-    setActionError(e instanceof ApiError ? e.message : 'Action failed');
-
-  const { data: monitor, isError } = useQuery({
-    queryKey: ['monitor', id],
-    queryFn: () => apiFetch<MonitorView>(`/monitors/${id}`),
-    refetchInterval: 5_000,
-  });
-  const { data: beats } = useQuery({
-    queryKey: ['heartbeats', id, range],
-    queryFn: () => apiFetch<Heartbeat[]>(`/monitors/${id}/heartbeats?limit=${range}`),
-    refetchInterval: 5_000,
-  });
-  const isSystem = monitor?.type === 'system';
-  const { data: metrics } = useQuery({
-    queryKey: ['metrics', id, range],
-    queryFn: () => apiFetch<MetricSample[]>(`/monitors/${id}/metrics?limit=${range}`),
-    refetchInterval: 5_000,
-    enabled: isSystem,
-  });
-
-  const toggle = useMutation({
-    mutationFn: () => apiFetch(`/monitors/${id}/${monitor?.isActive ? 'pause' : 'resume'}`, { method: 'POST' }),
-    onSuccess: () => {
-      setActionError(null);
-      void qc.invalidateQueries({ queryKey: ['monitor', id] });
-    },
-    onError: onActionError,
-  });
-  const remove = useMutation({
-    mutationFn: () => apiFetch(`/monitors/${id}`, { method: 'DELETE' }),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['monitors'] });
-      router.push('/monitors');
-    },
-    onError: onActionError,
-  });
-  const genToken = useMutation({
-    mutationFn: () => apiFetch<{ token: string }>(`/agent/token/${id}`, { method: 'POST' }),
-    onSuccess: (r) => setAgentToken(r.token),
-    onError: onActionError,
-  });
-
-  if (isError) return <div className="p-8 text-red-600">Monitor not found.</div>;
-  if (!monitor) return <div className="p-8 text-slate-500">Loading…</div>;
-
-  const chartData = (beats ?? [])
-    .filter((b) => b.responseTime !== null)
-    .reverse()
-    .map((b, i) => ({ i, ms: b.responseTime }));
-  const metricsData = [...(metrics ?? [])].reverse().map((m, i) => ({
-    i,
-    cpu: m.cpuPct,
-    mem: m.memPct,
-    disk: m.diskPct,
-  }));
 
   return (
-    <div className="mx-auto max-w-4xl p-8">
-      <Link href="/monitors" className="mb-4 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700">
-        <ArrowLeft className="h-4 w-4" />
+    <div className="mx-auto max-w-4xl p-6 lg:p-8">
+      <Link
+        href="/monitors"
+        className="mb-4 inline-flex items-center gap-1 text-sm text-slate-500 transition-colors hover:text-slate-700 dark:hover:text-slate-300"
+      >
+        <ArrowLeft className="h-4 w-4" aria-hidden />
         Monitors
       </Link>
-
-      <div className="mb-6 flex items-start justify-between">
-        <div>
-          <div className="flex items-center gap-3">
-            <StatusBadge status={monitor.status} />
-            <h1 className="text-2xl font-bold">{monitor.name}</h1>
-          </div>
-          <div className="mt-1 text-sm text-slate-500">
-            <span className="uppercase">{monitor.type}</span> · {monitorTarget(monitor)}
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => toggle.mutate()}>
-            {monitor.isActive ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-            {monitor.isActive ? 'Pause' : 'Resume'}
-          </Button>
-          <Link href={`/monitors/${id}/edit`}>
-            <Button variant="outline" size="sm">
-              <Pencil className="h-4 w-4" />
-              Edit
-            </Button>
-          </Link>
-          <Button
-            variant="danger"
-            size="sm"
-            aria-label="Delete monitor"
-            onClick={() => {
-              if (window.confirm('Delete this monitor?')) remove.mutate();
-            }}
-          >
-            <Trash2 className="h-4 w-4" aria-hidden />
-          </Button>
-        </div>
-      </div>
-
-      {actionError && <p className="mb-4 text-sm text-red-600">{actionError}</p>}
-
-      {isSystem && (monitor.config as { source?: string }).source === 'agent' && (
-        <Card className="mb-6 p-5">
-          <div className="mb-2 text-sm font-medium">Remote agent</div>
-          {agentToken ? (
-            <div className="space-y-2">
-              <p className="text-xs text-slate-500">Run this on the remote host (token shown once):</p>
-              <pre className="overflow-x-auto rounded bg-slate-100 p-3 text-xs dark:bg-slate-800">
-                pingwatch agent --server {typeof window !== 'undefined' ? window.location.origin : ''} --token {agentToken}
-              </pre>
-            </div>
-          ) : (
-            <Button size="sm" variant="outline" onClick={() => genToken.mutate()} disabled={genToken.isPending}>
-              Generate agent token
-            </Button>
-          )}
-        </Card>
-      )}
-
-      <div className="mb-6 grid grid-cols-3 gap-4">
-        {([['24h', monitor.uptime24h], ['7 days', monitor.uptime7d], ['30 days', monitor.uptime30d]] as const).map(
-          ([label, value]) => (
-            <Card key={label} className="p-5">
-              <div className="text-sm text-slate-500">{label} uptime</div>
-              <div className="mt-1 text-2xl font-bold tabular-nums">{uptimeLabel(value)}</div>
-            </Card>
-          ),
-        )}
-      </div>
-
-      <Card className="mb-6 p-5">
-        <div className="mb-3 text-sm font-medium">Recent checks</div>
-        <HeartbeatBar beats={beats ?? []} />
-      </Card>
-
-      <Card className="p-5">
-        <div className="mb-3 flex items-center justify-between">
-          <div className="text-sm font-medium">{isSystem ? 'System metrics (%)' : 'Response time (ms)'}</div>
-          <div className="flex gap-1">
-            {[60, 200].map((r) => (
-              <button
-                key={r}
-                onClick={() => setRange(r)}
-                className={cn(
-                  'rounded px-2 py-1 text-xs font-medium',
-                  range === r
-                    ? 'bg-slate-200 text-slate-900 dark:bg-slate-700 dark:text-slate-50'
-                    : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800',
-                )}
-              >
-                Last {r}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="h-48">
-          <ResponsiveContainer width="100%" height="100%">
-            {isSystem ? (
-              <LineChart data={metricsData}>
-                <XAxis dataKey="i" hide />
-                <YAxis width={36} tick={{ fontSize: 11 }} domain={[0, 100]} unit="%" />
-                <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} labelFormatter={() => ''} />
-                <Legend />
-                <Line type="monotone" dataKey="cpu" name="CPU" stroke="#10b981" dot={false} strokeWidth={2} isAnimationActive={false} />
-                <Line type="monotone" dataKey="mem" name="Memory" stroke="#3b82f6" dot={false} strokeWidth={2} isAnimationActive={false} />
-                <Line type="monotone" dataKey="disk" name="Disk" stroke="#f59e0b" dot={false} strokeWidth={2} isAnimationActive={false} />
-              </LineChart>
-            ) : (
-              <AreaChart data={chartData}>
-                <defs>
-                  <linearGradient id="rt" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#10b981" stopOpacity={0.4} />
-                    <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="i" hide />
-                <YAxis width={44} tick={{ fontSize: 11 }} unit=" ms" />
-                <Tooltip
-                  contentStyle={{ fontSize: 12, borderRadius: 8 }}
-                  formatter={(value) => [`${String(value)} ms`, 'Response']}
-                  labelFormatter={() => ''}
-                />
-                <Area type="monotone" dataKey="ms" stroke="#10b981" strokeWidth={2} fill="url(#rt)" isAnimationActive={false} />
-              </AreaChart>
-            )}
-          </ResponsiveContainer>
-        </div>
-      </Card>
+      <MonitorDetail id={id} onDeleted={() => router.push('/monitors')} />
     </div>
   );
 }
