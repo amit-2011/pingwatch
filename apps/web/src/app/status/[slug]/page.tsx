@@ -2,20 +2,21 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from 'next/navigation';
+import { Logo } from '@/components/logo';
 import type { MonitorStatus, PublicIncident, PublicStatusPage } from '@/lib/api';
 
 const OVERALL: Record<PublicStatusPage['overall'], { label: string; dot: string; text: string }> = {
-  operational: { label: 'All systems operational', dot: 'bg-emerald-500', text: 'text-emerald-600 dark:text-emerald-400' },
+  operational: { label: 'All systems operational', dot: 'bg-primary', text: 'text-brand-600 dark:text-brand-400' },
   degraded: { label: 'Partial degradation', dot: 'bg-amber-500', text: 'text-amber-600 dark:text-amber-400' },
   down: { label: 'Major outage', dot: 'bg-red-500', text: 'text-red-600 dark:text-red-400' },
 };
 
 const ITEM: Record<MonitorStatus, { label: string; dot: string }> = {
-  up: { label: 'Operational', dot: 'bg-emerald-500' },
+  up: { label: 'Operational', dot: 'bg-primary' },
   down: { label: 'Down', dot: 'bg-red-500' },
   pending: { label: 'Pending', dot: 'bg-slate-400' },
   paused: { label: 'Paused', dot: 'bg-slate-400' },
-  maintenance: { label: 'Maintenance', dot: 'bg-amber-500' },
+  maintenance: { label: 'Maintenance', dot: 'bg-blue-500' },
 };
 
 function uptimeLabel(value: number | null): string {
@@ -102,6 +103,9 @@ export default function PublicStatusPageView() {
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <div className="mx-auto max-w-2xl px-6 py-16">
         <header className="mb-8 text-center">
+          <div className="mb-5 flex justify-center">
+            <Logo size={30} />
+          </div>
           <h1 className="text-3xl font-bold">{data.title}</h1>
           {data.description && <p className="mt-2 text-slate-500">{data.description}</p>}
         </header>
@@ -124,7 +128,7 @@ export default function PublicStatusPageView() {
                     <span className="font-medium">{item.name}</span>
                   </div>
                   <div className="flex items-center gap-6 text-sm">
-                    <span className="hidden text-slate-400 sm:inline">
+                    <span className="hidden font-mono tabular-nums text-slate-400 sm:inline">
                       30d {uptimeLabel(item.uptime30d)}
                     </span>
                     <span className="w-24 text-right text-slate-500">{s.label}</span>

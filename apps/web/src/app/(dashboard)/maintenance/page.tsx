@@ -137,9 +137,21 @@ export default function MaintenancePage() {
             </div>
 
             {error && <p className="text-sm text-red-600">{error}</p>}
-            <Button type="submit" disabled={create.isPending}>
-              {create.isPending ? 'Saving…' : 'Schedule'}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button type="submit" disabled={create.isPending}>
+                {create.isPending ? 'Saving…' : 'Schedule'}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowForm(false);
+                  setError(null);
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
           </form>
         </Card>
       )}

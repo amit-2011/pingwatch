@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils';
 const SLOT_PX = 18;
 const MIN_BARS = 6;
 const MAX_BARS = 80;
-const OPEN_DELAY_MS = 250;
+const OPEN_DELAY_MS = 70;
 
 interface TipState {
   beat: Heartbeat;
@@ -92,7 +92,7 @@ export function HeartbeatBar({ beats }: { beats: Heartbeat[] }) {
               >
                 <span
                   className={cn(
-                    'block h-8 w-full origin-center rounded-full transition-transform duration-150 group-hover:scale-x-150 group-hover:scale-y-125',
+                    'block h-8 w-full origin-center rounded-full transition-transform duration-150 ease-brand group-hover:scale-x-[1.6] group-hover:scale-y-125',
                     meta.solid,
                   )}
                 />
@@ -110,7 +110,12 @@ export function HeartbeatBar({ beats }: { beats: Heartbeat[] }) {
   );
 }
 
-/** Fixed-position tooltip above the hovered bar, clamped to stay within the viewport. */
+/**
+ * Fixed-position tooltip above the hovered bar, clamped to stay within the viewport. The outer
+ * element owns positioning (the -translate-x/-y that anchors it above the bar); the inner card owns
+ * the entry animation, so the fade/scale-in never fights the positioning transform. `key`ed on the
+ * beat so React remounts the card when you sweep to another bar and the animation replays.
+ */
 function BeatTooltip({ tip }: { tip: TipState }) {
   const { beat } = tip;
   const meta = beatMeta(beat.status);
@@ -118,12 +123,17 @@ function BeatTooltip({ tip }: { tip: TipState }) {
   const left = Math.min(Math.max(tip.x, 90), window.innerWidth - 90);
   return (
     <div
-      className="pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-lg bg-slate-800 px-3 py-2 text-center shadow-xl dark:bg-slate-900"
+      className="pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-full"
       style={{ left, top: tip.y - 8 }}
     >
-      <div className={cn('text-xs font-semibold', beatTipText(beat.status))}>{meta.label.toUpperCase()}</div>
-      <div className="mt-1 border-t border-white/10 pt-1 text-xs text-slate-200">{fullTime(beat.createdAt)}</div>
-      {detail && <div className="text-xs text-slate-400">{detail}</div>}
+      <div
+        key={`${beat.createdAt}-${beat.status}`}
+        className="animate-tip-in whitespace-nowrap rounded-lg bg-slate-800 px-3 py-2 text-center shadow-xl dark:bg-slate-900"
+      >
+        <div className={cn('text-xs font-semibold', beatTipText(beat.status))}>{meta.label.toUpperCase()}</div>
+        <div className="mt-1 border-t border-white/10 pt-1 text-xs text-slate-200">{fullTime(beat.createdAt)}</div>
+        {detail && <div className="text-xs text-slate-400">{detail}</div>}
+      </div>
     </div>
   );
 }

@@ -16,6 +16,8 @@ export interface ChannelView {
   isDefault: boolean;
   lastError: string | null;
   lastTestedAt: Date | null;
+  /** How many monitors currently route alerts through this channel. */
+  monitorCount: number;
 }
 
 @Injectable()
@@ -45,12 +47,16 @@ export class ChannelService {
         config: this.secretBox.seal(JSON.stringify(input.config)),
         isActive: input.isActive,
       },
+      include: CHANNEL_COUNT_INCLUDE,
     });
     return this.toView(channel);
   }
 
   async list(organizationId: string): Promise<ChannelView[]> {
-    const channels = await this.db.notificationChannel.findMany({ where: { organizationId } });
+    const channels = await this.db.notificationChannel.findMany({
+      where: { organizationId },
+      include: CHANNEL_COUNT_INCLUDE,
+    });
     return channels.map((c) => this.toView(c));
   }
 
@@ -81,8 +87,28 @@ export class ChannelService {
       throw new DomainException('VALIDATION_ERROR', 'A new config is required when changing the channel type', 400);
     }
 
-    const channel = await this.db.notificationChannel.update({ where: { id: channelId }, data });
+    const channel = await this.db.notificationChannel.update({
+      where: { id: channelId },
+      data,
+      include: CHANNEL_COUNT_INCLUDE,
+    });
     return this.toView(channel);
+  }
+
+  /**
+   * Delete a channel. The MonitorNotification links cascade-delete (schema onDelete: Cascade),
+   * so the affected monitors simply stop routing alerts here — they are not themselves removed.
+   * Returns the number of monitors that were attached, for caller feedback.
+   */
+  async remove(organizationId: string, channelId: string): Promise<{ id: string; monitorCount: number }> {
+    const existing = await this.db.notificationChannel.findFirst({
+      where: { id: channelId, organizationId },
+      include: CHANNEL_COUNT_INCLUDE,
+    });
+    if (!existing) throw new DomainException('NOT_FOUND', 'Channel not found', 404);
+
+    await this.db.notificationChannel.delete({ where: { id: channelId } });
+    return { id: channelId, monitorCount: existing._count.monitorLinks };
   }
 
   async test(organizationId: string, channelId: string): Promise<SendResult> {
@@ -110,6 +136,7 @@ export class ChannelService {
     isDefault: boolean;
     lastError: string | null;
     lastTestedAt: Date | null;
+    _count: { monitorLinks: number };
   }): ChannelView {
     return {
       id: c.id,
@@ -119,6 +146,10 @@ export class ChannelService {
       isDefault: c.isDefault,
       lastError: c.lastError,
       lastTestedAt: c.lastTestedAt,
+      monitorCount: c._count.monitorLinks,
     };
   }
 }
+
+/** Pulls the count of attached monitors alongside a channel row. */
+const CHANNEL_COUNT_INCLUDE = { _count: { select: { monitorLinks: true } } } as const;

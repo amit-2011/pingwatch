@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { type FormEvent, useEffect, useState } from 'react';
 import { ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { Logo } from '@/components/logo';
 import { Button, Card, Input, Label } from '@/components/ui';
 
 export default function SetupPage() {
@@ -37,9 +38,8 @@ export default function SetupPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 dark:bg-slate-950">
       <Card className="w-full max-w-sm p-8">
-        <div className="mb-6 flex items-center gap-2">
-          <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
-          <span className="text-xl font-bold">PingWatch</span>
+        <div className="mb-6">
+          <Logo size={28} />
         </div>
         <h1 className="mb-1 text-lg font-semibold">Welcome — let&apos;s set up</h1>
         <p className="mb-6 text-sm text-slate-500">Create your admin account to get started.</p>

@@ -96,7 +96,7 @@ export default function TokensPage() {
                     className={
                       'rounded-full border px-3 py-1 text-sm capitalize ' +
                       (scopes.includes(s)
-                        ? 'border-slate-900 bg-slate-900 text-white dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900'
+                        ? 'border-primary bg-primary text-white'
                         : 'border-slate-300 text-slate-600 dark:border-slate-700 dark:text-slate-400')
                     }
                   >
@@ -107,9 +107,21 @@ export default function TokensPage() {
               <p className="text-xs text-slate-400">admin implies write implies read.</p>
             </div>
             {error && <p className="text-sm text-red-600">{error}</p>}
-            <Button type="submit" disabled={create.isPending}>
-              {create.isPending ? 'Creating…' : 'Create token'}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button type="submit" disabled={create.isPending}>
+                {create.isPending ? 'Creating…' : 'Create token'}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowForm(false);
+                  setError(null);
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
           </form>
         </Card>
       )}
@@ -128,8 +140,8 @@ export default function TokensPage() {
 function SecretReveal({ name, token, onClose }: { name: string; token: string; onClose: () => void }) {
   const [copied, setCopied] = useState(false);
   return (
-    <Card className="mb-6 border-emerald-300 bg-emerald-50 p-5 dark:border-emerald-800 dark:bg-emerald-950/30">
-      <div className="text-sm font-medium text-emerald-800 dark:text-emerald-300">
+    <Card className="mb-6 border-brand-300 bg-brand-50 p-5 dark:border-brand-800 dark:bg-brand-900/30">
+      <div className="text-sm font-medium text-brand-800 dark:text-brand-300">
         Token “{name}” created — copy it now, it won’t be shown again.
       </div>
       <div className="mt-3 flex items-center gap-2">

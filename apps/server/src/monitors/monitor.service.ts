@@ -41,6 +41,21 @@ export interface MonitorView extends Omit<MonitorRecord, 'config' | 'status'> {
 export const MONITOR_HISTORY_RANGES = ['recent', '3h', '6h', '24h', '1w', '1y'] as const;
 export type MonitorHistoryRange = (typeof MONITOR_HISTORY_RANGES)[number];
 
+/** Max rows a single /checks (data-export) query returns, guarding against open-ended windows. */
+export const CHECKS_EXPORT_MAX = 5000;
+
+/** One raw check row for the data-export table/CSV — a heartbeat plus its monitor's name. */
+export interface MonitorCheckRow {
+  createdAt: Date;
+  monitorId: string;
+  monitorName: string;
+  status: number; // HEARTBEAT_STATUS int (0 down / 1 up / 2 pending / 3 maintenance)
+  responseTime: number | null;
+  statusCode: number | null;
+  message: string | null;
+  important: boolean;
+}
+
 /** Normalized response-time chart point — one raw beat (short ranges) or one rollup bucket (long ranges). */
 export interface HistoryPoint {
   t: number; // epoch ms (beat time, or bucket start)
@@ -219,6 +234,59 @@ export class MonitorService {
       take: Math.min(Math.max(limit, 1), 500),
       select: { status: true, responseTime: true, statusCode: true, message: true, important: true, createdAt: true },
     });
+  }
+
+  /**
+   * Raw check history for the data-export page. Scoped to the org (across all monitors, or one when
+   * `monitorId` is given) and to an optional [from, to] time window, newest first. Capped at
+   * CHECKS_EXPORT_MAX rows so an open-ended range can't pull the whole table; the caller narrows the
+   * window/monitor to see more.
+   */
+  async checks(
+    organizationId: string,
+    opts: {
+      monitorId?: string | undefined;
+      from?: Date | undefined;
+      to?: Date | undefined;
+      limit?: number | undefined;
+    },
+  ): Promise<MonitorCheckRow[]> {
+    if (opts.monitorId) await this.requireMonitor(organizationId, opts.monitorId);
+
+    const createdAt: Prisma.DateTimeFilter = {};
+    if (opts.from) createdAt.gte = opts.from;
+    if (opts.to) createdAt.lte = opts.to;
+
+    const where: Prisma.HeartbeatWhereInput = { monitor: { organizationId } };
+    if (opts.monitorId) where.monitorId = opts.monitorId;
+    if (opts.from || opts.to) where.createdAt = createdAt;
+
+    const take = Math.min(Math.max(opts.limit ?? CHECKS_EXPORT_MAX, 1), CHECKS_EXPORT_MAX);
+    const rows = await this.db.heartbeat.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take,
+      select: {
+        status: true,
+        responseTime: true,
+        statusCode: true,
+        message: true,
+        important: true,
+        createdAt: true,
+        monitorId: true,
+        monitor: { select: { name: true } },
+      },
+    });
+    return rows.map((r) => ({
+      createdAt: r.createdAt,
+      monitorId: r.monitorId,
+      monitorName: r.monitor.name,
+      status: r.status,
+      responseTime: r.responseTime,
+      statusCode: r.statusCode,
+      message: r.message,
+      important: r.important,
+    }));
   }
 
   /**
