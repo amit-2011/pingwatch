@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useMemo } from 'react';
 import { type IncidentView, type MonitorView, apiFetch, monitorTarget } from '@/lib/api';
 import { Sparkline } from '@/components/sparkline';
-import { StatusPill } from '@/components/status-badge';
+import { StatusBadge } from '@/components/status-badge';
 import { Button, Card } from '@/components/ui';
 import { relativeTime, uptimeLabel } from '@/lib/format';
 import { statusMeta } from '@/lib/status';
@@ -31,7 +31,7 @@ function StatCard({
         <Icon className="h-5 w-5" aria-hidden />
       </span>
       <div>
-        <div className="text-2xl font-bold tabular-nums leading-none">{value}</div>
+        <div className="font-mono text-2xl font-bold tabular-nums leading-none">{value}</div>
         <div className="mt-1 text-sm text-slate-500">{label}</div>
       </div>
     </Card>
@@ -91,7 +91,7 @@ export default function OverviewPage() {
           label="Operational"
           value={isLoading ? '—' : stats.up}
           icon={CheckCircle2}
-          tone="bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400"
+          tone="bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400"
           href="/monitors"
         />
         <StatCard
@@ -127,7 +127,7 @@ export default function OverviewPage() {
           </div>
           {attention.length === 0 ? (
             <div className="flex flex-col items-center gap-2 py-12 text-center">
-              <CheckCircle2 className="h-8 w-8 text-emerald-500" aria-hidden />
+              <CheckCircle2 className="h-8 w-8 text-primary" aria-hidden />
               <p className="text-sm text-slate-500">Everything is operational.</p>
             </div>
           ) : (
@@ -171,7 +171,7 @@ export default function OverviewPage() {
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="truncate text-sm font-medium">{inc.monitorName}</span>
-                      <StatusPill status={inc.status === 'acknowledged' ? 'pending' : 'down'} />
+                      <StatusBadge status={inc.status === 'acknowledged' ? 'pending' : 'down'} />
                     </div>
                     <div className="mt-0.5 text-xs text-slate-500">{relativeTime(inc.startedAt)}</div>
                   </Link>

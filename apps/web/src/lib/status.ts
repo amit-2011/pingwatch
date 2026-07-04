@@ -12,38 +12,48 @@ export interface StatusMeta {
   text: string;
   /** Soft tinted surface (cards, chips). */
   soft: string;
+  /**
+   * The big, read-from-across-the-room status pill. Down is filled solid red (maximum alarm);
+   * everything else is a soft tinted pill (design system: Status pill).
+   */
+  pill: string;
 }
 
 export const STATUS_META: Record<string, StatusMeta> = {
   up: {
     label: 'Up',
     solid: 'bg-primary',
-    text: 'text-emerald-600 dark:text-emerald-400',
-    soft: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400',
+    text: 'text-brand-600 dark:text-brand-400',
+    soft: 'bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-300',
+    pill: 'bg-brand-50 text-brand-700 dark:bg-brand-500/15 dark:text-brand-300',
   },
   down: {
     label: 'Down',
     solid: 'bg-red-500',
     text: 'text-red-600 dark:text-red-400',
     soft: 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400',
+    pill: 'bg-red-500 text-white',
   },
   pending: {
     label: 'Pending',
     solid: 'bg-amber-400',
     text: 'text-amber-600 dark:text-amber-400',
     soft: 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400',
+    pill: 'bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
   },
   maintenance: {
     label: 'Maintenance',
     solid: 'bg-blue-500',
     text: 'text-blue-600 dark:text-blue-400',
     soft: 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400',
+    pill: 'bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300',
   },
   paused: {
     label: 'Paused',
     solid: 'bg-slate-400',
     text: 'text-slate-500',
     soft: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
+    pill: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
   },
 };
 

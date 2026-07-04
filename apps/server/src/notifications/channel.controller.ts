@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import {
   type CreateChannelInput,
   type UpdateChannelInput,
@@ -44,5 +44,10 @@ export class ChannelController {
   @Post(':id/test')
   test(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     return this.channels.test(user.organizationId, id);
+  }
+
+  @Delete(':id')
+  remove(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.channels.remove(user.organizationId, id);
   }
 }

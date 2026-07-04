@@ -78,7 +78,7 @@ export function RangeDropdown({
               className={cn(
                 'block w-full px-3.5 py-1.5 text-left text-sm transition-colors',
                 o.id === value
-                  ? 'bg-emerald-500 font-medium text-white'
+                  ? 'bg-primary font-medium text-white'
                   : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800',
               )}
             >

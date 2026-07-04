@@ -66,6 +66,18 @@ export interface Heartbeat {
   createdAt: string;
 }
 
+/** One raw check row from /checks (data-export), a heartbeat plus its monitor name. */
+export interface CheckRow {
+  createdAt: string;
+  monitorId: string;
+  monitorName: string;
+  status: number; // 0 down / 1 up / 2 pending / 3 maintenance
+  responseTime: number | null;
+  statusCode: number | null;
+  message: string | null;
+  important: boolean;
+}
+
 export type MonitorHistoryRange = 'recent' | '3h' | '6h' | '24h' | '1w' | '1y';
 
 /** Normalized response-time chart point from /monitors/:id/history (raw beat or rollup bucket). */
@@ -97,6 +109,8 @@ export interface ChannelView {
   isDefault: boolean;
   lastError: string | null;
   lastTestedAt: string | null;
+  /** How many monitors currently route alerts through this channel. */
+  monitorCount: number;
 }
 
 export interface Project {
