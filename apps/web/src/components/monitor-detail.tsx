@@ -157,7 +157,7 @@ export function MonitorDetail({ id, onDeleted }: { id: string; onDeleted?: () =>
           ([label, value]) => (
             <Card key={label} className="p-4 lg:p-5">
               <div className="text-xs text-slate-500 lg:text-sm">{label} uptime</div>
-              <div className="mt-1 text-xl font-bold tabular-nums lg:text-2xl">{uptimeLabel(value)}</div>
+              <div className="mt-1 font-mono text-xl font-bold tabular-nums lg:text-2xl">{uptimeLabel(value)}</div>
             </Card>
           ),
         )}

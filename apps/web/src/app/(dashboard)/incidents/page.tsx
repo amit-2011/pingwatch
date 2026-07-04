@@ -124,7 +124,7 @@ function IncidentCard({ incident, defaultOpen = false }: { incident: IncidentVie
             <Badge
               className={
                 incident.status === 'resolved'
-                  ? 'border-emerald-300 text-emerald-600 dark:border-emerald-800 dark:text-emerald-400'
+                  ? 'border-brand-300 text-brand-600 dark:border-brand-800 dark:text-brand-400'
                   : 'border-red-300 text-red-600 dark:border-red-800 dark:text-red-400'
               }
             >
