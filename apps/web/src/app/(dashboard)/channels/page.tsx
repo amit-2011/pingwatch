@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Pencil, Plus, Send, X } from 'lucide-react';
+import { Pencil, Plus, Send, Trash2, X } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 import type { ChannelType } from '@pingwatch/shared';
 import { ApiError, type ChannelView, apiFetch } from '@/lib/api';
@@ -34,6 +34,7 @@ export default function ChannelsPage() {
   const [fields, setFields] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<Record<string, string>>({});
+  const [confirmDelete, setConfirmDelete] = useState<ChannelView | null>(null);
 
   const set = (k: string, v: string) => setFields((p) => ({ ...p, [k]: v }));
 
@@ -139,6 +140,17 @@ export default function ChannelsPage() {
     mutationFn: (id: string) => apiFetch<{ ok: boolean; message?: string }>(`/channels/${id}/test`, { method: 'POST' }),
     onSuccess: (r, id) => setResults((p) => ({ ...p, [id]: r.ok ? 'Sent ✓' : `Failed: ${r.message ?? 'error'}` })),
     onError: (e, id) => setResults((p) => ({ ...p, [id]: e instanceof ApiError ? `Failed: ${e.message}` : 'Failed' })),
+  });
+
+  const remove = useMutation({
+    mutationFn: (id: string) => apiFetch(`/channels/${id}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['channels'] });
+      // Monitors keep their other channels but lose this one — refresh anything that listed it.
+      void qc.invalidateQueries({ queryKey: ['monitors'] });
+      setConfirmDelete(null);
+    },
+    onError: (e) => setError(e instanceof ApiError ? e.message : 'Failed to delete'),
   });
 
   function onSubmit(e: FormEvent) {
@@ -299,6 +311,17 @@ export default function ChannelsPage() {
                   <Send className="h-4 w-4" />
                   Test
                 </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setError(null);
+                    setConfirmDelete(c);
+                  }}
+                  aria-label="Delete channel"
+                >
+                  <Trash2 className="h-4 w-4 text-red-600" />
+                </Button>
               </div>
             </Card>
           ))
@@ -306,6 +329,42 @@ export default function ChannelsPage() {
           <Card className="py-12 text-center text-slate-500">No notification channels yet.</Card>
         )}
       </div>
+
+      {confirmDelete && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => !remove.isPending && setConfirmDelete(null)}
+        >
+          <Card className="w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-semibold">Delete “{confirmDelete.name}”?</h2>
+            <p className="mt-2 text-sm text-slate-500">
+              {confirmDelete.monitorCount > 0 ? (
+                <>
+                  <span className="font-medium text-slate-700 dark:text-slate-200">
+                    {confirmDelete.monitorCount} monitor{confirmDelete.monitorCount === 1 ? '' : 's'}
+                  </span>{' '}
+                  {confirmDelete.monitorCount === 1 ? 'uses' : 'use'} this notification channel. Deleting it stops those
+                  monitors from sending alerts here — the monitors themselves are not affected. This cannot be undone.
+                </>
+              ) : (
+                <>No monitors use this notification channel. Deleting it cannot be undone.</>
+              )}
+            </p>
+            {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+            <div className="mt-6 flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setConfirmDelete(null)} disabled={remove.isPending}>
+                Cancel
+              </Button>
+              <Button variant="danger" onClick={() => remove.mutate(confirmDelete.id)} disabled={remove.isPending}>
+                <Trash2 className="h-4 w-4" />
+                {remove.isPending ? 'Deleting…' : 'Delete'}
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

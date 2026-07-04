@@ -41,7 +41,7 @@ function ChangePassword() {
           <Label htmlFor="new">New password</Label>
           <Input id="new" type="password" value={next} onChange={(e) => setNext(e.target.value)} minLength={8} required />
         </div>
-        {msg && <p className={msg.ok ? 'text-sm text-emerald-600' : 'text-sm text-red-600'}>{msg.text}</p>}
+        {msg && <p className={msg.ok ? 'text-sm text-brand-600' : 'text-sm text-red-600'}>{msg.text}</p>}
         <Button type="submit" size="sm" disabled={mutation.isPending}>
           {mutation.isPending ? 'Saving…' : 'Update password'}
         </Button>

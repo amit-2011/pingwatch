@@ -38,7 +38,7 @@ function MonitorRow({
       className={cn(
         'w-full border-l-2 px-4 py-3 text-left transition-colors',
         selected
-          ? 'border-l-slate-900 bg-slate-50 dark:border-l-slate-100 dark:bg-slate-800/60'
+          ? 'border-l-primary bg-brand-50/60 dark:border-l-brand-300 dark:bg-brand-500/10'
           : 'border-l-transparent hover:bg-slate-50 dark:hover:bg-slate-800/40',
       )}
     >
@@ -164,9 +164,9 @@ export default function MonitorsPage() {
                 key={f.key}
                 onClick={() => setFilter(f.key)}
                 className={cn(
-                  'rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
+                  'rounded-full px-3 py-1 text-xs font-semibold transition-colors',
                   filter === f.key
-                    ? 'bg-slate-900 text-white dark:bg-slate-50 dark:text-slate-900'
+                    ? 'bg-primary text-white'
                     : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800',
                 )}
               >

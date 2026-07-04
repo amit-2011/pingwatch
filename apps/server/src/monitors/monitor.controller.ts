@@ -72,6 +72,31 @@ export class MonitorController {
     return this.monitors.metrics(user.organizationId, id, limit ? Number(limit) : 100);
   }
 
+  /**
+   * Raw check history for the data-export page. `monitorId` optional (omit → all monitors in the
+   * org); `from`/`to` are ISO timestamps; `limit` is capped server-side. Returns newest first.
+   */
+  @Get('checks')
+  checks(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('monitorId') monitorId?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const parseDate = (v?: string) => {
+      if (!v) return undefined;
+      const d = new Date(v);
+      return Number.isNaN(d.getTime()) ? undefined : d;
+    };
+    return this.monitors.checks(user.organizationId, {
+      monitorId: monitorId || undefined,
+      from: parseDate(from),
+      to: parseDate(to),
+      limit: limit ? Number(limit) : undefined,
+    });
+  }
+
   @Roles('member')
   @Post('monitors')
   create(

@@ -143,7 +143,7 @@ export default function EscalationPage() {
                           className={
                             'rounded-full border px-3 py-1 text-xs ' +
                             (step.channelIds.includes(c.id)
-                              ? 'border-slate-900 bg-slate-900 text-white dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900'
+                              ? 'border-primary bg-primary text-white'
                               : 'border-slate-300 text-slate-600 dark:border-slate-700 dark:text-slate-400')
                           }
                         >
@@ -168,9 +168,21 @@ export default function EscalationPage() {
             </div>
 
             {error && <p className="text-sm text-red-600">{error}</p>}
-            <Button type="submit" disabled={create.isPending}>
-              {create.isPending ? 'Saving…' : 'Create policy'}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button type="submit" disabled={create.isPending}>
+                {create.isPending ? 'Saving…' : 'Create policy'}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowForm(false);
+                  setError(null);
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
           </form>
         </Card>
       )}
@@ -209,7 +221,7 @@ function PolicyRow({
             <Badge
               className={
                 policy.isActive
-                  ? 'border-emerald-300 text-emerald-600 dark:border-emerald-800 dark:text-emerald-400'
+                  ? 'border-brand-300 text-brand-600 dark:border-brand-800 dark:text-brand-400'
                   : ''
               }
             >

@@ -122,9 +122,21 @@ export default function StatusPagesPage() {
             </div>
 
             {error && <p className="text-sm text-red-600">{error}</p>}
-            <Button type="submit" disabled={create.isPending}>
-              {create.isPending ? 'Saving…' : 'Create page'}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button type="submit" disabled={create.isPending}>
+                {create.isPending ? 'Saving…' : 'Create page'}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowForm(false);
+                  setError(null);
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
           </form>
         </Card>
       )}
@@ -170,7 +182,7 @@ function StatusPageRow({ page, onChange }: { page: StatusPageAdminView; onChange
             <Badge
               className={
                 page.isPublished
-                  ? 'border-emerald-300 text-emerald-600 dark:border-emerald-800 dark:text-emerald-400'
+                  ? 'border-brand-300 text-brand-600 dark:border-brand-800 dark:text-brand-400'
                   : ''
               }
             >
